@@ -2,9 +2,9 @@ Lexical analysis and syntax analysis part for spl (SUSTech programming language)
 
 todo
 
-- [] fix `int` exp
-- [] fix `float` exp
-- [] fix `char` exp
+- [x] fix `int` exp
+- [x] fix `float` exp
+- [x] fix `char` exp
 - [] water some examples to test lexer
 - [x] support standalone lexer
-- [] support debugging lexer
+- [x] support debugging lexer

@@ -6,16 +6,23 @@
 %}
 
 letter [a-zA-Z]
-letter_ {letter}|_
+letter_underline {letter}|_
 digit [0-9]
+digit_nonzero [1-9]
 hexdigit [0-9a-fA-F]
+hex_prefix 0(x|X)
+float_suffix (f|F)
 
-whitespace [ \t\r\n]
+whitespace [ \t\n]
 
-int             {digit}+
-float           {digit}+.{digit}+
-char            \'{letter}\'
-identifier      {letter_}({letter}|{digit})*
+/* A int constant starting with "0" is considered to be oct form, which is not supported by spl. */
+/* Here I consider the sign ("+" or "-") to be an unary operator, instead of a part of the constant */
+int             ({digit_nonzero}{digit}*)|({hex_prefix}({hexdigit}+))
+float           (({digit}*.{digit}+)|({digit}+.{digit}*)){float_suffix}*
+/* for example "'ab'", will not be considered to be valid char token */
+/* [\x20-\x7f] indicates printable characters */
+char            '(([\x20-\x7f])|(\\x{hexdigit}{2}))'
+identifier      {letter_underline}({letter_underline}|{digit})*
 type            "int"|"float"|"char"
 struct          "struct"
 if              "if"
@@ -32,6 +39,7 @@ gt              ">"
 ge              ">="
 ne              "!="
 eq              "=="
+/* spl does not support "++" and "--", they would be considered to be two consecutive "+" or "-" operators */
 plus            "+"
 minus           "-"
 mul             "*"
@@ -248,7 +256,7 @@ rc              "}"
 }
 
 {whitespace} {  }
-
+.* { printf("unrecognized sequence: %s\n", yytext); exit(1); }
 
 %%
 

@@ -7,15 +7,15 @@ SPL_LEXER_MODULE_C=spl-lexer-module.c
 SPL_LEXER_STANDALONE_C=spl-lexer-standalone.c
 
 SPL_LEXER_BODY_L=spl-lexer-body.l
-SPL_LEXER_MODULE_OUT=spl-lexer-module.out
-SPL_LEXER_STANDALONE_OUT=spl-lexer-standalone.out
+SPL_LEXER_MODULE_OUT=spl-lexer-module
+SPL_LEXER_STANDALONE_OUT=spl-lexer-standalone
 
-.PHONY: spl-lexer-module spl-lexer-standalone clean
-spl-lexer-module:
+.PHONY:  clean
+$(SPL_LEXER_BODY_C): $(SPL_LEXER_MODULE_L)
 	$(FLEX) -o $(SPL_LEXER_BODY_C) $(SPL_LEXER_BODY_L)
+$(SPL_LEXER_MODULE_OUT): $(SPL_LEXER_BODY_C) $(SPL_LEXER_MODULE_C)
 	$(CC) $(SPL_LEXER_MODULE_C) -lfl -o $(SPL_LEXER_MODULE_OUT)
-spl-lexer-standalone:
-	$(FLEX) -o $(SPL_LEXER_BODY_C) $(SPL_LEXER_BODY_L)
+$(SPL_LEXER_STANDALONE_OUT): $(SPL_LEXER_BODY_C) $(SPL_LEXER_STANDALONE_C)
 	$(CC) $(SPL_LEXER_STANDALONE_C) -lfl -o $(SPL_LEXER_STANDALONE_OUT)
 clean:
 	rm -f $(SPL_LEXER_BODY_C) $(SPL_LEXER_MODULE_OUT) $(SPL_LEXER_STANDALONE_OUT)
