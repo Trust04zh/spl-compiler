@@ -1,21 +1,44 @@
-CC=gcc
-FLEX=flex
-BISON=bison
+CC = gcc
+FLEX = flex
+BISON = bison
 
-SPL_LEXER_BODY_C=spl-lexer-body.c
-SPL_LEXER_MODULE_C=spl-lexer-module.c
-SPL_LEXER_STANDALONE_C=spl-lexer-standalone.c
+PRODUCT_DIRECTORY = .
 
-SPL_LEXER_BODY_L=spl-lexer-body.l
-SPL_LEXER_MODULE_OUT=spl-lexer-module
-SPL_LEXER_STANDALONE_OUT=spl-lexer-standalone
+# source files for lexer
+SPL_LEXER_BODY_L = spl-lexer-body.l
+SPL_LEXER_MODULE_C = spl-lexer-module.c
+SPL_LEXER_STANDALONE_C = spl-lexer-standalone.c
 
-.PHONY:  clean
-$(SPL_LEXER_BODY_C): $(SPL_LEXER_MODULE_L)
+# target files for lexer
+SPL_LEXER_BODY_C = $(PRODUCT_DIRECTORY)/spl-lexer-body.c
+SPL_LEXER_STANDALONE_OUT = $(PRODUCT_DIRECTORY)/spl-lexer-standalone
+
+# source files for parser
+SPL_PARSER_BODY_Y = spl-parser-body.y
+SPL_PARSER_STANDALONE_C = spl-parser-standalone.c
+
+# target files for parser
+SPL_PARSER_BODY_C = $(PRODUCT_DIRECTORY)/spl-parser-body.c
+SPL_PARSER_BODY_H = $(PRODUCT_DIRECTORY)/spl-parser-body.h
+SPL_PARSER_BODY_LOG = $(PRODUCT_DIRECTORY)/spl-parser-body.output
+SPL_PARSER_STANDALONE_OUT = $(PRODUCT_DIRECTORY)/spl-parser-standalone
+
+$(SPL_LEXER_BODY_C): $(SPL_LEXER_BODY_L)
 	$(FLEX) -o $(SPL_LEXER_BODY_C) $(SPL_LEXER_BODY_L)
-$(SPL_LEXER_MODULE_OUT): $(SPL_LEXER_BODY_C) $(SPL_LEXER_MODULE_C)
-	$(CC) $(SPL_LEXER_MODULE_C) -lfl -o $(SPL_LEXER_MODULE_OUT)
+
 $(SPL_LEXER_STANDALONE_OUT): $(SPL_LEXER_BODY_C) $(SPL_LEXER_STANDALONE_C)
 	$(CC) $(SPL_LEXER_STANDALONE_C) -lfl -o $(SPL_LEXER_STANDALONE_OUT)
+
+$(SPL_PARSER_BODY_C): $(SPL_PARSER_BODY_Y) $(SPL_LEXER_MODULE_C) $(SPL_LEXER_BODY_C)
+	$(BISON) -t --report=state --report-file=$(SPL_PARSER_BODY_LOG) --defines=$(SPL_PARSER_BODY_H) \
+		-o $(SPL_PARSER_BODY_C) $(SPL_PARSER_BODY_Y)
+
+$(SPL_PARSER_STANDALONE_OUT): $(SPL_PARSER_BODY_C) $(SPL_PARSER_STANDALONE_C)
+	$(CC) $(SPL_PARSER_STANDALONE_C) -lfl -ly -o $(SPL_PARSER_STANDALONE_OUT)
+
+.PHONY: clean
 clean:
-	rm -f $(SPL_LEXER_BODY_C) $(SPL_LEXER_MODULE_OUT) $(SPL_LEXER_STANDALONE_OUT)
+	rm -f $(SPL_LEXER_BODY_C) $(SPL_LEXER_MODULE_OUT) $(SPL_LEXER_STANDALONE_OUT) \
+		$(SPL_PARSER_BODY_C) $(SPL_PARSER_BODY_H) $(SPL_PARSER_BODY_LOG) $(SPL_PARSER_STANDALONE_OUT)
+
+
