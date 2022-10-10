@@ -9,18 +9,19 @@
 %}
 
 letter [a-zA-Z]
-letter_underline {letter}|_
+letter_underline ({letter}|_)
 digit [0-9]
 digit_nonzero [1-9]
 hexdigit [0-9a-fA-F]
-hex_prefix 0(x|X)
+hexdigit_nonzero [1-9a-fA-F]
+hex_prefix (0(x|X))
 float_suffix (f|F)
 
 whitespace [ \t\r\n]
 
 /* A int constant starting with "0" is considered to be oct form, which is not supported by spl. */
 /* Here I consider the sign ("+" or "-") to be an unary operator, instead of a part of the constant */
-int             ((0|{digit_nonzero}{digit}*))|({hex_prefix}({hexdigit}+))
+int             ((0|{digit_nonzero}{digit}*))|({hex_prefix}(0|{hexdigit_nonzero}{hexdigit}*))
 float           (({digit}*\.{digit}+)|({digit}+\.{digit}*)){float_suffix}*
 /* for example "'ab'", will not be considered to be valid char token */
 /* [\x20-\x7f] indicates printable characters */
