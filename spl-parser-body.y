@@ -19,12 +19,12 @@
 %right ASSIGN
 %left OR
 %left AND
-%left EQ NE
-%left LT LE GT GE
+%left LT LE GT GE EQ NE
 %left PLUS MINUS
 %left MUL DIV
+/* there's no need to set presedence for unary minus (neg) due to production rules */
 %right NOT /* PLUS MINUS */
-%left LP RP LB RB /* LC RC */ DOT
+%left LP RP LB RB DOT
 
 %nonassoc IF_WITHOUT_ELSE
 %nonassoc ELSE
