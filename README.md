@@ -5,8 +5,8 @@ todo
 - [x] support `int` exp
 - [x] support `float` exp
 - [x] support `char` exp
-- [] add yyaction (for detailed error report?)
-- [] recognize lexical error
+- [x] add yyaction (for detailed error report?)
+- [x] recognize lexical error
 - [] recognize syntax error
 - [] water some examples to test lexer
 - [x] support standalone lexer
