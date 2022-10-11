@@ -3,6 +3,8 @@
     void yyerror(const char *);
 %}
 
+%locations
+
 %token INT FLOAT CHAR
 %token ID
 %token TYPE
@@ -15,6 +17,13 @@
 %token PLUS MINUS MUL DIV
 %token AND OR NOT
 %token LP RP LB RB LC RC
+
+%union {
+  int type_int;
+  float type_float;
+  char type_char;
+  char* type_id;
+}
 
 %right ASSIGN
 %left OR

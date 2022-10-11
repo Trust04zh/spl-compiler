@@ -5,11 +5,17 @@ todo
 - [x] support `int` exp
 - [x] support `float` exp
 - [x] support `char` exp
+- [] add yyaction (for detailed error report?)
+- [] recognize lexical error
+- [] recognize syntax error
 - [] water some examples to test lexer
 - [x] support standalone lexer
 - [x] support debugging lexer
 - [] support standalone parser
+- [] bonus: support single line comment
+- [] bonus: support multi line comment
 - [] add actions in lexer (see details below)
+
 
 process for actions in lexer
 
