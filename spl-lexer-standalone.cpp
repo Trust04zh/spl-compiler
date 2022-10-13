@@ -1,6 +1,6 @@
 #define SPL_LEXER_STANDALONE
-#include "spl-lexer-body.c"
-#include <stdio.h>
+#include "spl-lexer-body.cpp"
+#include <cstdio>
 
 int main(int argc, char **argv){
     char *file_path;

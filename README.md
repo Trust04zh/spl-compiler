@@ -7,7 +7,7 @@ todo
 - [x] support `char` exp
 - [x] add yyaction (for detailed error report?)
 - [x] recognize lexical error
-- [] recognize syntax error
+- [x] recognize syntax error
 - [] water some examples to test lexer
 - [x] support standalone lexer
 - [x] support debugging lexer

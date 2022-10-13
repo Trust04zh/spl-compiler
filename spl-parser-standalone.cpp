@@ -1,5 +1,5 @@
-#include "spl-parser-body.c"
-#include <stdio.h>
+#include "spl-parser-body.cpp"
+#include <cstdio>
 
 int main(int argc, char **argv){
     char *file_path;
@@ -13,6 +13,7 @@ int main(int argc, char **argv){
             return EXIT_FAIL;
         }
         yyrestart(yyin);
+        // yydebug = 1;
         yyparse();
         return EXIT_OK;
     } else{
