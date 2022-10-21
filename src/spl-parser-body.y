@@ -1,6 +1,8 @@
 %{
   #include "spl-parser-body.hpp"
 
+  extern SplAstNode *prog;
+
   void yyltype_to_splloc(YYLTYPE *yylloc, SplLoc *splloc) {
     splloc->first_line = yylloc->first_line;
     splloc->first_column = yylloc->first_column;
@@ -57,7 +59,7 @@
 Program:
       ExtDefList  { 
         yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("Program", tmp_splattr, tmp_splloc, $1); 
-        $$->print_formatted(0, 2);
+        prog = $$;
       }
     ;
 ExtDefList:

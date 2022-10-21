@@ -3,7 +3,6 @@
 
 #include <cstdio>
 #include <vector>
-#include "spl-parser-body.hpp"
 
 enum SplAstNodeType {
     SPL_EMPTY, SPL_INT, SPL_FLOAT, SPL_CHAR, SPL_TYPE, SPL_ID, SPL_TERMINAL, SPL_NONTERMINAL,
