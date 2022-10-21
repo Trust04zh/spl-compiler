@@ -1,5 +1,19 @@
 Lexical analysis and syntax analysis part for spl (SUSTech programming language) project.
 
+usage
+
+make parser executable
+
+```
+make splc
+```
+
+apply `splc` parser on all `.spl` files in specified directory
+
+```
+./test.sh <directory>
+```
+
 todo
 
 - [] add our basic testcases 
