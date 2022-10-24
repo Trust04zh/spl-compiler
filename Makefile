@@ -9,6 +9,10 @@ BINARY_DIR = ./bin
 CPPFLAGS ?= -g
 CPPFLAGS += -I$(SOURCE_DIR) -I$(BUILD_DIR)
 
+FLEXFLAGS ?=
+
+BISONFLAGS ?= -t
+
 # source files for lexer
 SPL_LEXER_BODY_L = $(SOURCE_DIR)/spl-lexer-body.l
 SPL_LEXER_MODULE_CPP = $(SOURCE_DIR)/spl-lexer-module.cpp
@@ -38,7 +42,7 @@ splc: $(SPLC)
 
 $(SPL_LEXER_BODY_CPP): $(SPL_LEXER_BODY_L)
 	@mkdir -p $(dir $@)
-	$(FLEX) -o $(SPL_LEXER_BODY_CPP) $(SPL_LEXER_BODY_L)
+	$(FLEX) $(FLEXFLAGS) -o $(SPL_LEXER_BODY_CPP) $(SPL_LEXER_BODY_L)
 
 $(SPL_LEXER_STANDALONE_OUT): $(SPL_LEXER_BODY_CPP) $(SPL_LEXER_STANDALONE_CPP)
 	@mkdir -p $(dir $@)
@@ -46,8 +50,8 @@ $(SPL_LEXER_STANDALONE_OUT): $(SPL_LEXER_BODY_CPP) $(SPL_LEXER_STANDALONE_CPP)
 
 $(SPL_PARSER_BODY_CPP): $(SPL_PARSER_BODY_Y) $(SPL_LEXER_MODULE_CPP) $(SPL_LEXER_BODY_CPP)
 	@mkdir -p $(dir $@)
-	$(BISON) -t --report=state --report-file=$(SPL_PARSER_BODY_LOG) --defines=$(SPL_PARSER_BODY_HPP) \
-		-o $(SPL_PARSER_BODY_CPP) $(SPL_PARSER_BODY_Y)
+	$(BISON) $(BISONFLAGS) --report=state --report-file=$(SPL_PARSER_BODY_LOG) \
+		--defines=$(SPL_PARSER_BODY_HPP) -o $(SPL_PARSER_BODY_CPP) $(SPL_PARSER_BODY_Y)
 
 $(SPL_PARSER_STANDALONE_OUT): $(SPL_PARSER_BODY_CPP) $(SPL_PARSER_STANDALONE_CPP) $(SPL_AST_HPP)
 	@mkdir -p $(dir $@)

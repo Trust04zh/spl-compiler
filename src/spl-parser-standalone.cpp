@@ -16,7 +16,7 @@ int main(int argc, char **argv){
             return EXIT_FAIL;
         }
         yyrestart(yyin);
-        // yydebug = 1;
+        // yydebug = 1;  // uncomment this line to enable bison debug output
         yyparse();
         prog->print_formatted(0, 2);
         return EXIT_OK;

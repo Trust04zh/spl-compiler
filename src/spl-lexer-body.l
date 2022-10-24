@@ -58,7 +58,6 @@ err_int_dec     0{digit}+
 err_int_hex     {hex_prefix}0{hexdigit}+
 int             ((0|{digit_nonzero}{digit}*))|({hex_prefix}(0|{hexdigit_nonzero}{hexdigit}*))
 float           {digit}+\.{digit}+
-/* for example "'ab'", will not be considered to be valid char token */
 /* [\x20-\x7e] indicates printable characters */
 /* ref: https://en.cppreference.com/w/cpp/string/byte/isprint */
 char            '(([\x20-\x7e])|(\\x{hexdigit}{2}))'
