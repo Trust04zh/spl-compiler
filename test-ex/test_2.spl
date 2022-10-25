@@ -1,0 +1,20 @@
+int test_1_r01(int a, int b)
+{
+  c = 'c';
+  if (a > b)
+  { /// aaa
+    return a;
+  }
+/*
+ fghui94
+*/
+  else // int
+  {
+    return b;
+  }
+}
+ /* /* /*
+
+/*
+
+fewefwe */
