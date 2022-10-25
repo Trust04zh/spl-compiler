@@ -105,10 +105,6 @@ rc              "}"
     }
 }
 
-<INITIAL>"//" { 
-    SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: \"//\"\n", yylineno, yycolumn - yyleng);
-    BEGIN(SINGLE_LINE_COMMENT); 
-}
 <SINGLE_LINE_COMMENT><<EOF>> {
     BEGIN(INITIAL);
 }
@@ -130,6 +126,10 @@ rc              "}"
 
 {whitespace} {  }
 
+"//" { 
+    SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: \"//\"\n", yylineno, yycolumn - yyleng);
+    BEGIN(SINGLE_LINE_COMMENT); 
+}
 "/*" {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: \"/*\"\n", yylineno, yycolumn - yyleng);
     BEGIN(MULTI_LINE_COMMENT);
