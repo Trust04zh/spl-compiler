@@ -51,7 +51,7 @@ hexdigit_nonzero [1-9a-fA-F]
 hex_prefix (0(x|X))
 
 eol \n
-whitespace [ \t\r\n]
+whitespace [ \t\r]
 
 /* A int constant starting with "0" is considered to be oct form, which is not supported by spl. */
 err_int_dec     0{digit}+
