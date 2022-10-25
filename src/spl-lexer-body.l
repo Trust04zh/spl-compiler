@@ -93,8 +93,47 @@ rb              "]"
 lc              "{"
 rc              "}"
 
+%x SINGLE_LINE_COMMENT
+%x MULTI_LINE_COMMENT
+
 %%
 
+<*>{eol} {
+    yycolumn = 1;
+    if (YYSTATE == SINGLE_LINE_COMMENT) {
+        BEGIN(INITIAL);
+    }
+}
+
+<INITIAL>"//" { 
+    SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: \"//\"\n", yylineno, yycolumn - yyleng);
+    BEGIN(SINGLE_LINE_COMMENT); 
+}
+<SINGLE_LINE_COMMENT><<EOF>> {
+    BEGIN(INITIAL);
+}
+<SINGLE_LINE_COMMENT>. {  }
+
+<INITIAL>"*/" {
+    SPL_LEXER_ERROR_PRINT("Error: unexpected */\n");
+    exit(EXIT_FAIL);
+}
+<MULTI_LINE_COMMENT>"*/" {
+    SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: \"*/\"\n", yylineno, yycolumn - yyleng);
+    BEGIN(INITIAL);
+}
+<MULTI_LINE_COMMENT>. {  }
+<MULTI_LINE_COMMENT><<EOF>>  {
+    SPL_LEXER_ERROR_PRINT("Error type A at Line %d: comment\n", yylineno);
+    exit(EXIT_FAIL);
+}
+
+{whitespace} {  }
+
+"/*" {
+    SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: \"/*\"\n", yylineno, yycolumn - yyleng);
+    BEGIN(MULTI_LINE_COMMENT);
+}
 {err_int_dec} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: decimal int constant cannot start with 0 (except for 0) : %s\n", yylineno, yycolumn - yyleng, yytext);
     SPL_LEXER_ERROR_PRINT("Error type A at Line %d: decimal int constant cannot start with 0 (except for 0) : %s\n", yylineno, yytext);
@@ -430,10 +469,6 @@ rc              "}"
         return RC;
     #endif
 }
-
-
-{eol} { yycolumn = 1; }
-{whitespace} {  }
 
 . {
     SPL_LEXER_ERROR_PRINT("Error type A at Line %d: unknown lexeme: %s", yylineno, yytext);

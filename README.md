@@ -29,9 +29,10 @@ flags
 todo
 
 - [] add our basic testcases 
-- [] add bonus part (with testcases)
-  - [] bonus: support single line comment
-  - [] bonus: support multi line comment
+- [] support error detection
+- [x] add bonus part (with testcases)
+  - [x] bonus: support single line comment
+  - [x] bonus: support multi line comment
 - [] test lexer and parser with more testcases
 - [] write report
 - [] adapt to submission requirements
