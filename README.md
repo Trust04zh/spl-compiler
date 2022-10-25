@@ -33,6 +33,7 @@ todo
 - [x] add bonus part (with testcases)
   - [x] bonus: support single line comment
   - [x] bonus: support multi line comment
+  - [x] testcases
 - [] test lexer and parser with more testcases
 - [] write report
 - [] adapt to submission requirements
