@@ -111,7 +111,7 @@ rc              "}"
 <SINGLE_LINE_COMMENT>. {  }
 
 <INITIAL>"*/" {
-    SPL_LEXER_ERROR_PRINT("Error: unexpected */\n");
+    SPL_LEXER_ERROR_PRINT("Error type A at Line %d: unexpected \"*/\"\n", yylineno);
     exit(EXIT_FAIL);
 }
 <MULTI_LINE_COMMENT>"*/" {
@@ -120,7 +120,7 @@ rc              "}"
 }
 <MULTI_LINE_COMMENT>. {  }
 <MULTI_LINE_COMMENT><<EOF>>  {
-    SPL_LEXER_ERROR_PRINT("Error type A at Line %d: comment\n", yylineno);
+    SPL_LEXER_ERROR_PRINT("Error type A at Line %d: unterminated comment\n", yylineno);
     exit(EXIT_FAIL);
 }
 
