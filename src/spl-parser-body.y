@@ -105,6 +105,7 @@ ParamDec:
 /* statement */
 CompSt:
       LC DefList StmtList RC  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("CompSt", tmp_splattr, tmp_splloc, $1, $2, $3, $4); }
+    | LC DefList StmtList error RC  { printf("---------------misplaced deflist\n"); }
     ;
 StmtList:
       Stmt StmtList  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("StmtList", tmp_splattr, tmp_splloc, $1, $2); }
@@ -117,6 +118,8 @@ Stmt:
     | IF LP Exp RP Stmt  %prec IF_WITHOUT_ELSE  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("Stmt", tmp_splattr, tmp_splloc, $1, $2, $3, $4, $5); }
     | IF LP Exp RP Stmt ELSE Stmt  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("Stmt", tmp_splattr, tmp_splloc, $1, $2, $3, $4, $5, $6, $7); }
     | WHILE LP Exp RP Stmt  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("Stmt", tmp_splattr, tmp_splloc, $1, $2, $3, $4, $5); }
+    | RETURN Exp error { printf("------------------------return missing semi\n"); }
+    | Exp error { printf("------------------missing semi\n"); }
     ;
 
 /* local definition */
@@ -126,6 +129,7 @@ DefList:
     ;
 Def:
       Specifier DecList SEMI  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("Def", tmp_splattr, tmp_splloc, $1, $2, $3); }
+    | Specifier DecList error { printf("--------------missing semi\n"); }
     ;
 DecList:
       Dec  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("DecList", tmp_splattr, tmp_splloc, $1); }
@@ -171,5 +175,5 @@ Args:
 
 void yyerror(const char *s) {
   printf("Error type B at Line %d: %s\n", yylloc.first_line, s);
-  exit(1);
+  /* exit(1); */
 }

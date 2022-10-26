@@ -475,10 +475,19 @@ rc              "}"
     char ch;
     // keeps reading printable characters (except for blank)
     while (ch = yyinput(), ch >= 0x21 && ch <= 0x7e) {
+        if (ch == ';') {
+            unput(';');
+            break;
+        }
         putchar(ch);
     }
     putchar('\n');
-    exit(EXIT_FAIL);
+    #if !defined(SPL_LEXER_STANDALONE)
+        tmp_splattr = {SPL_TERMINAL, nullptr};
+        yyltype_to_splloc(&yylloc, &tmp_splloc);
+        yylval = new SplAstNode("ILLEGAL_ID", tmp_splattr, tmp_splloc);
+        return ID;
+    #endif
 }
 
 %%

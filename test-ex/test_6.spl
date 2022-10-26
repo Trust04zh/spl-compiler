@@ -1,0 +1,5 @@
+int mian() {
+    c = a;
+    int x = 10;
+    b = 20;
+}

@@ -1,0 +1,7 @@
+int mian() {
+    int a = 10
+    isf (a == 10) {
+        return b
+    }
+    return a
+}
