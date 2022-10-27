@@ -1,5 +1,17 @@
 int mian() {
-    c = a;
-    int x = 10;
-    b = 20;
+  int x = 10
+  c = a
+  b = 20
+  if (a > b) {
+    return a
+  }
+  for (i = 0; i < 10; i = i + 1) {
+    a = a + 1
+  }
+  else {
+    return b
+  }
+  isf(a < b) {
+    a = a + 1;
+  }
 }

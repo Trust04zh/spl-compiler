@@ -68,6 +68,7 @@ struct          "struct"
 if              "if"
 else            "else"
 while           "while"
+for             "for"
 return          "return"
 dot             "."
 semi            ";"
@@ -235,6 +236,15 @@ rc              "}"
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("WHILE", tmp_splattr, tmp_splloc);
         return WHILE;
+    #endif
+}
+{for} {
+    SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: for      (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
+    #if !defined(SPL_LEXER_STANDALONE)
+        tmp_splattr = {SPL_TERMINAL, nullptr};
+        yyltype_to_splloc(&yylloc, &tmp_splloc);
+        yylval = new SplAstNode("FOR", tmp_splattr, tmp_splloc);
+        return FOR;
     #endif
 }
 {return} {

@@ -18,7 +18,9 @@ int main(int argc, char **argv){
         yyrestart(yyin);
         // yydebug = 1;  // uncomment this line to enable bison debug output
         yyparse();
-        prog->print_formatted(0, 2);
+        if (!hasError) {
+            prog->print_formatted(0, 2);
+        }
         return EXIT_OK;
     } else{
         fputs("Too many arguments! Expected: 2.\n", stderr);
