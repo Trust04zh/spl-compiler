@@ -1,5 +1,13 @@
 根据project文档，基础功能部分不赘述，the code speaks。
 
+## 基本样例说明
+
+test_1：人畜无害的样例
+test_2：人畜无害的样例
+test_3：人畜无害的样例
+test_4：Stmt后跟Def，认为是新的CompSt，但是前一个ComptSt没有右大括号闭合，报错
+test_5：各种报错的样例
+
 ## 错误恢复
 
 ## Bonus功能
