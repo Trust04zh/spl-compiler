@@ -1,18 +1,18 @@
-Program (1)
-  ExtDefList (1)
-    ExtDef (1)
-      Specifier (1)
+Program (-3)
+  ExtDefList (-3)
+    ExtDef (-3)
+      Specifier (-3)
         TYPE: int
-      FunDec (1)
+      FunDec (-3)
         ID: main
         LP
         RP
-      CompSt (1)
+      CompSt (-3)
         LC
-        StmtList (2)
-          Stmt (2)
+        StmtList (-2)
+          Stmt (-2)
             RETURN
-            Exp (2)
+            Exp (-2)
               INT: 0
             SEMI
         RC

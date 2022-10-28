@@ -168,6 +168,9 @@ rc              "}"
             buf << in.rdbuf();
             std::string tmp(buf.str());
             for (auto it = tmp.crbegin(); it != tmp.crend(); it++) {
+                if (*it == '\n') {
+                    yylineno += 1;
+                }
                 unput(*it);
             }
         }
