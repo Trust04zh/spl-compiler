@@ -32,12 +32,12 @@ apply `splc` parser on all `.spl` files in specified directory
 
 ## checklist
 
-- [] add our basic testcases 
+- [x] add our basic testcases 
 - [x] support error detection
 - [x] add bonus part (with testcases)
   - [x] bonus: support single line comment
   - [x] bonus: support multi line comment
   - [x] testcases
-- [] test lexer and parser with more testcases
+- [x] test lexer and parser with more testcases
 - [] write report
 - [] adapt to submission requirements

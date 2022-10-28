@@ -1,5 +1,13 @@
 根据project文档，基础功能部分不赘述，the code speaks。
 
+## 基本样例说明
+
+test_1：人畜无害的样例
+test_2：人畜无害的样例
+test_3：人畜无害的样例
+test_4：Stmt后跟Def，认为是新的CompSt，但是前一个ComptSt没有右大括号闭合，报错
+test_5：各种报错的样例
+
 ## 错误恢复
 
 对于词法分析中遇到的错误，若为格式不合法的INT或ID等，我们选择打印报错信息后仍然向bison输出对应的终结符。若为无法匹配的字符，则打印报错信息，并把它和它之后的所有可打印字符（到第一个空格或不可打印字符为止）全部作为ID。
@@ -16,6 +24,8 @@
 `YYSTATE`为默认的`INITIAL`时，lexer读到`//`时，设置`YYSTATE`为`SINGLE_LINE_COMMENT`，指示单行注释状态，直到遇到换行符或EOF；读到`/*`时，设置`YYSTATE`为`SINGLE_LINE_COMMENT`，指示多行注释状态，直到遇到`*/`。注释结束时`YYSTATE`置为`INITIAL`。
 
 读到EOF时，如果`YYSTATE`为`MULTI_LINE_COMMENT`，说明多行注释未闭合，报错。
+
+在我们的设计中，出现注释相关的词法错误时不尝试任何错误恢复，立即终止程序。
 
 样例输入输出见`test-ex`下的1-4组。
 
