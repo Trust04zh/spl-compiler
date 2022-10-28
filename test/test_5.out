@@ -1,0 +1,5 @@
+Error type A at Line 2: unknown lexeme: ^
+Error type B at Line 3: missing semi at the end of statement of expression
+Error type B at Line 3: missing semi at the end of statement of expression
+Error type A at Line 7: identifier cannot start with digit : 2_looooooooooooooooooooooooooong_id
+Error type B at Line 8: missing semi at the end of return statement
