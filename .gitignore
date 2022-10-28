@@ -3,3 +3,4 @@ tests
 spl-parser-body.tab.c
 build/
 bin/
+.vscode

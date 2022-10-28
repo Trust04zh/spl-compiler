@@ -2,6 +2,8 @@
     #include <cstdio>
     #include <cstdlib>
     #include <cstring>
+    #include <sstream>
+    #include <fstream>
 
     extern "C" int yylex();
 
@@ -42,6 +44,7 @@
 %option yylineno
 %option noyywrap
 
+
 letter [a-zA-Z]
 letter_underline ({letter}|_)
 digit [0-9]
@@ -52,6 +55,9 @@ hex_prefix (0(x|X))
 
 eol \n
 whitespace [ \t\r]
+
+
+include         "#include"{whitespace}*"<"
 
 /* A int constant starting with "0" is considered to be oct form, which is not supported by spl. */
 err_int_dec     0{digit}+
@@ -94,6 +100,7 @@ rb              "]"
 lc              "{"
 rc              "}"
 
+
 %x SINGLE_LINE_COMMENT
 %x MULTI_LINE_COMMENT
 
@@ -135,15 +142,55 @@ rc              "}"
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: \"/*\"\n", yylineno, yycolumn - yyleng);
     BEGIN(MULTI_LINE_COMMENT);
 }
+
+{include} {
+    std::stringstream f;
+    char ch;
+    bool flag;
+    while (ch = yyinput(), ch >= 0x21 && ch <= 0x7e) {
+        if (ch == '>') {
+            flag = true;
+            break;
+        }
+        f << ch;
+        // putchar(ch);
+    }
+    if (!flag) {
+        printf("Error type A: no matching >\n");
+    } else {
+        std::ifstream in(f.str());
+        if (!in.is_open()) {
+            printf("Error type A: failed to open: %s\n", f.str().c_str());
+        } else {
+            std::stringstream buf;
+            buf << in.rdbuf();
+            std::string tmp(buf.str());
+            for (auto it = tmp.crbegin(); it != tmp.crend(); it++) {
+                unput(*it);
+            }
+        }
+    }
+}
+
 {err_int_dec} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: decimal int constant cannot start with 0 (except for 0) : %s\n", yylineno, yycolumn - yyleng, yytext);
     SPL_LEXER_ERROR_PRINT("Error type A at Line %d: decimal int constant cannot start with 0 (except for 0) : %s\n", yylineno, yytext);
-    exit(EXIT_FAIL);
+    #if !defined(SPL_LEXER_STANDALONE)
+        tmp_splattr = {SPL_TERMINAL, nullptr};
+        yyltype_to_splloc(&yylloc, &tmp_splloc);
+        yylval = new SplAstNode("ILLEGAL_ID", tmp_splattr, tmp_splloc);
+        return ID;
+    #endif
 }
 {err_int_hex} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: hexadecimal int constant cannot start with 0 in digit part (except for 0x0) : %s\n", yylineno, yycolumn - yyleng, yytext); 
     SPL_LEXER_ERROR_PRINT("Error type A at Line %d: hexadecimal int constant cannot start with 0 in digit part (except for 0x0) : %s\n", yylineno, yytext); 
-    exit(EXIT_FAIL);
+    #if !defined(SPL_LEXER_STANDALONE)
+        tmp_splattr = {SPL_TERMINAL, nullptr};
+        yyltype_to_splloc(&yylloc, &tmp_splloc);
+        yylval = new SplAstNode("ILLEGAL_ID", tmp_splattr, tmp_splloc);
+        return ID;
+    #endif
 }
 {int} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: int        (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
@@ -259,7 +306,12 @@ rc              "}"
 {err_id_digit} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: identifier cannot start with digit : %s\n", yylineno, yycolumn - yyleng, yytext); 
     SPL_LEXER_ERROR_PRINT("Error type A at Line %d: identifier cannot start with digit : %s\n", yylineno, yytext); 
-    exit(EXIT_FAIL);
+    #if !defined(SPL_LEXER_STANDALONE)
+        tmp_splattr = {SPL_TERMINAL, nullptr};
+        yyltype_to_splloc(&yylloc, &tmp_splloc);
+        yylval = new SplAstNode("ILLEGAL_ID", tmp_splattr, tmp_splloc);
+        return ID;
+    #endif
 }
 {id} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: id         (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
