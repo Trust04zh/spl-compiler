@@ -177,39 +177,23 @@ rc              "}"
 {err_int_dec} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: decimal int constant cannot start with 0 (except for 0) : %s\n", yylineno, yycolumn - yyleng, yytext);
     SPL_LEXER_ERROR_PRINT("Error type A at Line %d: decimal int constant cannot start with 0 (except for 0) : %s\n", yylineno, yytext);
-<<<<<<< HEAD
-    #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
-        yyltype_to_splloc(&yylloc, &tmp_splloc);
-        yylval = new SplAstNode("ILLEGAL_ID", tmp_splattr, tmp_splloc);
-        return ID;
-=======
     hasError = true;
     #if !defined(SPL_LEXER_STANDALONE)
         tmp_splattr = {SPL_TERMINAL, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("ILLEGAL_INT_CONST", tmp_splattr, tmp_splloc);
         return INT;
->>>>>>> update error recovery
     #endif
 }
 {err_int_hex} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: hexadecimal int constant cannot start with 0 in digit part (except for 0x0) : %s\n", yylineno, yycolumn - yyleng, yytext); 
     SPL_LEXER_ERROR_PRINT("Error type A at Line %d: hexadecimal int constant cannot start with 0 in digit part (except for 0x0) : %s\n", yylineno, yytext); 
-<<<<<<< HEAD
-    #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
-        yyltype_to_splloc(&yylloc, &tmp_splloc);
-        yylval = new SplAstNode("ILLEGAL_ID", tmp_splattr, tmp_splloc);
-        return ID;
-=======
     hasError = true;
     #if !defined(SPL_LEXER_STANDALONE)
         tmp_splattr = {SPL_TERMINAL, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("ILLEGAL_INT_CONST", tmp_splattr, tmp_splloc);
         return INT;
->>>>>>> update error recovery
     #endif
 }
 {int} {
@@ -326,10 +310,7 @@ rc              "}"
 {err_id_digit} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: identifier cannot start with digit : %s\n", yylineno, yycolumn - yyleng, yytext); 
     SPL_LEXER_ERROR_PRINT("Error type A at Line %d: identifier cannot start with digit : %s\n", yylineno, yytext); 
-<<<<<<< HEAD
-=======
     hasError = true;
->>>>>>> update error recovery
     #if !defined(SPL_LEXER_STANDALONE)
         tmp_splattr = {SPL_TERMINAL, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
