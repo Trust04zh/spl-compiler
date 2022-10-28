@@ -1,5 +1,7 @@
 Lexical analysis and syntax analysis part for spl (SUSTech programming language) project.
 
+see `src` directory for source code.
+
 see [report/phase1.md](report/phase1.md) for report for course project submission.
 
 ## usage
