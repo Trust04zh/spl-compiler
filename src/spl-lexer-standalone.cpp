@@ -2,6 +2,8 @@
 #include "spl-lexer-body.cpp"
 #include <cstdio>
 
+bool hasError = false;
+
 int main(int argc, char **argv){
     char *file_path;
     if(argc < 2){

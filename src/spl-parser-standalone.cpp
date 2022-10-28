@@ -3,6 +3,7 @@
 #include <cstdio>
 
 SplAstNode *prog = nullptr;
+bool hasError = false;
 
 int main(int argc, char **argv){
     char *file_path;
@@ -20,9 +21,11 @@ int main(int argc, char **argv){
         yyparse();
         if (!hasError) {
             prog->print_formatted(0, 2);
+            return EXIT_OK;
+        } else {
+            return EXIT_FAIL;
         }
-        return EXIT_OK;
-    } else{
+    } else {
         fputs("Too many arguments! Expected: 2.\n", stderr);
         return EXIT_FAIL;
     }

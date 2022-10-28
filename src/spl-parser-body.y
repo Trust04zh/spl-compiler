@@ -2,6 +2,7 @@
   #include "spl-parser-body.hpp"
 
   extern SplAstNode *prog;
+  extern bool hasError;
 
   void yyltype_to_splloc(YYLTYPE *yylloc, SplLoc *splloc) {
     splloc->first_line = yylloc->first_line;
@@ -13,8 +14,6 @@
   SplAttr tmp_splattr;
   SplVal tmp_splval;
   SplLoc tmp_splloc;
-
-  bool hasError = false;
     
   #include "spl-lexer-module.cpp"
 
@@ -63,6 +62,10 @@ Program:
         yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("Program", tmp_splattr, tmp_splloc, $1); 
         prog = $$;
       }
+    | error  {
+        printf("Error type B at Line %d: unrecoverable syntax error\n", yylloc.first_line);
+        exit(EXIT_FAIL);
+      }
     ;
 ExtDefList:
       ExtDef ExtDefList  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("ExtDefList", tmp_splattr, tmp_splloc, $1, $2); }
@@ -107,7 +110,7 @@ ParamDec:
 /* statement */
 CompSt:
       LC DefList StmtList RC  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("CompSt", tmp_splattr, tmp_splloc, $1, $2, $3, $4); }
-    | LC DefList StmtList error { printf("missing RC\n"); }
+    | LC DefList StmtList error { printf("Error type B at Line %d: missing RC\n", yylloc.first_line); }
     ;
 StmtList:
       Stmt StmtList  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("StmtList", tmp_splattr, tmp_splloc, $1, $2); }
@@ -119,11 +122,11 @@ Stmt:
     | RETURN Exp SEMI  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("Stmt", tmp_splattr, tmp_splloc, $1, $2, $3); }
     | IF LP Exp RP Stmt  %prec IF_WITHOUT_ELSE  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("Stmt", tmp_splattr, tmp_splloc, $1, $2, $3, $4, $5); }
     | IF LP Exp RP Stmt ELSE Stmt  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("Stmt", tmp_splattr, tmp_splloc, $1, $2, $3, $4, $5, $6, $7); }
-    | ELSE error Stmt { printf("wrong else\n"); }
     | WHILE LP Exp RP Stmt  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("Stmt", tmp_splattr, tmp_splloc, $1, $2, $3, $4, $5); }
     | FOR LP Exp SEMI Exp SEMI Exp RP Stmt { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("Stmt", tmp_splattr, tmp_splloc, $1, $2, $3, $4, $5, $6, $7, $8, $9); }
-    | RETURN Exp error { printf("return missing semi\n"); }
-    | Exp error { printf("missing semi\n"); }
+    | ELSE error Stmt { printf("Error type B at Line %d: incorrect else\n", yylloc.first_line); } 
+    | RETURN Exp error { printf("Error type B at Line %d: missing semi at the end of return statement\n", yylloc.first_line); }
+    | Exp error { printf("Error type B at Line %d: missing semi at the end of statement of expression\n", yylloc.first_line); }
     ;
 
 /* local definition */
@@ -133,7 +136,7 @@ DefList:
     ;
 Def:
       Specifier DecList SEMI  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("Def", tmp_splattr, tmp_splloc, $1, $2, $3); }
-    | Specifier DecList error { printf("missing semi\n"); }
+    | Specifier DecList error { printf("Error type B at Line %d: missing semi at the end of definition \n", yylloc.first_line); }
     ;
 DecList:
       Dec  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("DecList", tmp_splattr, tmp_splloc, $1); }
@@ -178,7 +181,6 @@ Args:
 %%
 
 void yyerror(const char *s) {
-  printf("Error type B at Line %d: %s\n", yylloc.first_line, s);
   hasError = true;
   /* exit(1); */
 }

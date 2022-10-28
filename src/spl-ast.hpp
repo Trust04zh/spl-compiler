@@ -3,6 +3,7 @@
 
 #include <cstdio>
 #include <vector>
+#include <cassert>
 
 enum SplAstNodeType {
     SPL_EMPTY, SPL_INT, SPL_FLOAT, SPL_CHAR, SPL_TYPE, SPL_ID, SPL_TERMINAL, SPL_NONTERMINAL,
@@ -98,23 +99,29 @@ struct SplAstNode{
             case SPL_TERMINAL:
                 break;
             case SPL_INT:
+                assert(attr.value_p != nullptr);
                 printf(": %d", attr.value_p->val_int.value);
                 break;
             case SPL_FLOAT:
+                assert(attr.value_p != nullptr);
                 // printf(": %f", attr.value_p->val_float.value);
                 printf(": %s", attr.value_p->val_float.raw);
                 break;
             case SPL_CHAR:
+                assert(attr.value_p != nullptr);
                 // printf(": %c", attr.value_p->val_char.value);
                 printf(": %s", attr.value_p->val_char.raw);
                 break;
             case SPL_ID:
+                assert(attr.value_p != nullptr);
                 printf(": %s", attr.value_p->val_id);
                 break;
             case SPL_TYPE:
+                assert(attr.value_p != nullptr);
                 printf(": %s", attr.value_p->val_type);
                 break;
             default:
+                assert(false);
                 break;
         }
         putchar('\n');
