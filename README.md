@@ -1,6 +1,8 @@
 Lexical analysis and syntax analysis part for spl (SUSTech programming language) project.
 
-usage
+see [report/phase1.md](report/phase1.md) for report for course project submission.
+
+## usage
 
 make parser executable
 
@@ -14,7 +16,7 @@ apply `splc` parser on all `.spl` files in specified directory
 ./test.sh <directory>
 ```
 
-flags
+## flags
 
 ```
 // src/spl-parser-standalone.cpp
@@ -26,10 +28,10 @@ flags
 // #define SPL_LEXER_VERBOSE // uncomment this line to enable verbose output in lexer
 ```
 
-todo
+## checklist
 
 - [] add our basic testcases 
-- [] support error detection
+- [x] support error detection
 - [x] add bonus part (with testcases)
   - [x] bonus: support single line comment
   - [x] bonus: support multi line comment
