@@ -41,5 +41,5 @@ apply `splc` parser on all `.spl` files in specified directory
   - [x] bonus: support multi line comment
   - [x] testcases
 - [x] test lexer and parser with more testcases
-- [] write report
-- [] adapt to submission requirements
+- [x] write report
+- [x] adapt to submission requirements
