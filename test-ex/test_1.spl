@@ -1,5 +1,0 @@
-int main() { // hello
-  return 0; /*
-  world
-  */
-}

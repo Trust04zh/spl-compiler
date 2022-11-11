@@ -1,6 +1,2 @@
-tests
-*.output
-spl-parser-body.tab.c
 build/
 bin/
-.vscode

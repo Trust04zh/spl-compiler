@@ -4,7 +4,11 @@ Lexical analysis and syntax analysis part for spl (SUSTech programming language)
 - `test`: basic testcases
 - `test-ex`: bonus testcases
 
-see [report/phase1.md](report/phase1.md) for report for course project submission.
+see [report/phase1.md](report/phase1.md) for report for lexer and parser.
+
+see [report/phase2.md](report/phase2.md) for report for semantic analyzer.
+
+use `git checkout parser` to checkout the parser version.
 
 ## usage
 
@@ -34,12 +38,5 @@ apply `splc` parser on all `.spl` files in specified directory
 
 ## checklist
 
-- [x] add our basic testcases 
-- [x] support error detection
-- [x] add bonus part (with testcases)
-  - [x] bonus: support single line comment
-  - [x] bonus: support multi line comment
-  - [x] testcases
-- [x] test lexer and parser with more testcases
-- [x] write report
-- [x] adapt to submission requirements
+- [] todo
+
