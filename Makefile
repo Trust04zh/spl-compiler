@@ -13,6 +13,10 @@ FLEXFLAGS ?=
 
 BISONFLAGS ?= -t
 
+# source files for utilities
+SPL_AST_HPP = $(SOURCE_DIR)/spl-ast.hpp
+SPL_AST_CPP = $(SOURCE_DIR)/spl-ast.cpp
+
 # source files for lexer
 SPL_LEXER_BODY_L = $(SOURCE_DIR)/spl-lexer-body.l
 SPL_LEXER_MODULE_CPP = $(SOURCE_DIR)/spl-lexer-module.cpp
@@ -24,15 +28,21 @@ SPL_LEXER_STANDALONE_OUT = $(BUILD_DIR)/spl-lexer-standalone
 
 # source files for parser
 SPL_PARSER_BODY_Y = $(SOURCE_DIR)/spl-parser-body.y
+SPL_PARSER_MODULE_CPP = $(SOURCE_DIR)/spl-parser-module.cpp
 SPL_PARSER_STANDALONE_CPP = $(SOURCE_DIR)/spl-parser-standalone.cpp
-SPL_AST_HPP = $(SOURCE_DIR)/spl-ast.hpp
-SPL_AST_CPP = $(SOURCE_DIR)/spl-ast.cpp
 
 # target files for parser
 SPL_PARSER_BODY_CPP = $(BUILD_DIR)/spl-parser-body.cpp
 SPL_PARSER_BODY_HPP = $(BUILD_DIR)/spl-parser-body.hpp
 SPL_PARSER_BODY_LOG = $(BUILD_DIR)/spl-parser-body.output
 SPL_PARSER_STANDALONE_OUT = $(BUILD_DIR)/spl-parser-standalone
+
+# source files for semantic analyzer
+SPL_SEMANTIC_ANALYZER_BODY_CPP = $(SOURCE_DIR)/spl-semantic-analyzer-body.cpp
+SPL_SEMANTIC_ANALYZER_STANDALONE_CPP = $(SOURCE_DIR)/spl-semantic-analyzer-standalone.cpp
+
+# target files for semantic analyzer
+SPL_SEMANTIC_ANALYZER_STANDALONE_OUT = $(BUILD_DIR)/spl-semantic-analyzer-standalone
 
 # binary products
 SPLC = $(BINARY_DIR)/splc
@@ -57,9 +67,14 @@ $(SPL_PARSER_STANDALONE_OUT): $(SPL_PARSER_BODY_CPP) $(SPL_PARSER_STANDALONE_CPP
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(SPL_PARSER_STANDALONE_CPP) -lfl -ly -o $(SPL_PARSER_STANDALONE_OUT)
 
-$(SPLC): $(SPL_PARSER_STANDALONE_OUT)
+$(SPL_SEMANTIC_ANALYZER_STANDALONE_OUT): $(SPL_SEMANTIC_ANALYZER_BODY_CPP) $(SPL_SEMANTIC_ANALYZER_STANDALONE_CPP) $(SPL_AST_HPP) \
+		$(SPL_PARSER_MODULE_CPP) $(SPL_PARSER_BODY_CPP)
 	@mkdir -p $(dir $@)
-	cp $(SPL_PARSER_STANDALONE_OUT) $(SPLC)
+	$(CC) $(CPPFLAGS) $(SPL_SEMANTIC_ANALYZER_STANDALONE_CPP) -o $(SPL_SEMANTIC_ANALYZER_STANDALONE_OUT)
+
+$(SPLC): $(SPL_SEMANTIC_ANALYZER_STANDALONE_OUT)
+	@mkdir -p $(dir $@)
+	cp $(SPL_SEMANTIC_ANALYZER_STANDALONE_OUT) $(SPLC)
 
 .PHONY: clean
 clean:
