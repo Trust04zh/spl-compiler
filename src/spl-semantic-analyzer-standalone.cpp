@@ -1,9 +1,17 @@
+#define SPL_SEMANTIC_ANALYZER_VERBOSE  // uncomment this line to enable verbose output in semantic analyzer
 #include "spl-semantic-analyzer-body.cpp"
 #include "spl-ast.hpp"
 #include <cstdio>
 
 SplAstNode *prog = nullptr;
 bool hasError = false;
+
+// global symbol table for variables
+VariableSymbolTable symbols_var;
+// global symbol table for structs
+StructSymbolTable symbols_struct;
+// global symbol table for functions
+FunctionSymbolTable symbols_func;
 
 int main(int argc, char **argv){
     char *file_path;
@@ -24,6 +32,10 @@ int main(int argc, char **argv){
 
         // apply semantic analyzer on prog
         spl_semantic_analysis();
+
+        #if defined(SPL_SEMANTIC_ANALYZER_VERBOSE)
+            symbols_var.print();
+        #endif
         
         if (!hasError) { // if there is no error, print nothing
             return EXIT_OK;

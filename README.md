@@ -36,6 +36,15 @@ apply `splc` parser on all `.spl` files in specified directory
 // #define SPL_LEXER_VERBOSE // uncomment this line to enable verbose output in lexer
 ```
 
+```
+// src/spl-semantic-analyzer-standalone.cpp
+#define SPL_SEMANTIC_ANALYZER_VERBOSE  // uncomment this line to enable verbose output in semantic analyzer
+
+```
+// src/spl-semantic-analyzer-standalone.cpp
+// yydebug = 1;  // uncomment this line to enable bison debug output
+```
+
 ## checklist
 
 - [] type system & type propagation in expression

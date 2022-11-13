@@ -36,14 +36,9 @@
     return latest_specifier_exact_type;
   }
 
-  // SplExpType specifier2splexptype(char *specifier);
-
-// global symbol table for variables
-  VariableSymbolTable symbols_var;
-  // global symbol table for structs
-  StructSymbolTable symbols_struct;
-  // global symbol table for functions
-  FunctionSymbolTable symbols_func;
+  extern VariableSymbolTable symbols_var;
+  extern StructSymbolTable symbols_struct;
+  extern FunctionSymbolTable symbols_func;
 
   void yyerror(const char *);
 %}
@@ -220,7 +215,7 @@ VarDec:
             tmp_splval.val_vardec.name = $1->attr.value_p->val_vardec.name;
             tmp_splval.val_vardec.type.exp_type = (*get_latest_specifier_exact_type()).exp_type;
             tmp_splval.val_vardec.type.is_array = true;
-            std::vector<int> *&dim =  tmp_splval.val_vardec.type.dimensions;
+            std::vector<int> *&dim = tmp_splval.val_vardec.type.dimensions;
             dim = new std::vector<int>();
             if ($1->attr.value_p->val_vardec.type.is_array) {
               std::vector<int> *&dim_prev = $1->attr.value_p->val_vardec.type.dimensions;

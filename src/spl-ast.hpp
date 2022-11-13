@@ -44,7 +44,6 @@ struct SplAttr {
 };
 
 enum SplExpType {
-    SPL_EXP_INVALID,
     SPL_EXP_INT, SPL_EXP_FLOAT, SPL_EXP_CHAR,
     SPL_EXP_STRUCT,
 };
@@ -57,7 +56,6 @@ struct SplTypeArray {
 struct SplExpExactType {
     SplExpType exp_type;
     std::string *struct_name;  // if exp_type == SplExpType::SPL_EXP_STRUCT
-    // StructSymbolTable::const_iterator *struct_it_ptr;
     bool is_array;
     std::vector<int> *dimensions; // if is_array == true
     static void dup(const SplExpExactType &src, SplExpExactType &dst) {
@@ -65,13 +63,10 @@ struct SplExpExactType {
         if (src.exp_type == SplExpType::SPL_EXP_STRUCT) {
             *(dst.struct_name) = *(src.struct_name);  // copy std::string
         }
-        if (src.is_array && !dst.is_array) {
-            dst.dimensions = new std::vector<int>();
+        if (src.is_array) {
+            dst.dimensions = new std::vector<int>(*src.dimensions);
         }
         dst.is_array = src.is_array;
-        if (src.is_array) {
-            *(dst.dimensions) = *(src.dimensions);  // copy std::vector
-        }
     }
 };
 
@@ -81,7 +76,7 @@ struct Symbol {
 
 template  <typename T>
 class SymbolTable: public std::unordered_map<std::string, T> {
-public:
+protected:
     static void install_symbol(SymbolTable &st, const T &sym) {
         auto it = st.find(sym.name);
         if (it != st.end()) {
@@ -99,19 +94,72 @@ struct SplVariableSymbol: Symbol {
         SplExpExactType::dup(type, this->type);
     }
 };
-typedef SymbolTable<SplVariableSymbol> VariableSymbolTable;
+class VariableSymbolTable: public SymbolTable<SplVariableSymbol> {
+public:
+    static void install_symbol(VariableSymbolTable &st, const SplVariableSymbol &sym) {
+        // #if defined(SPL_SEMANTIC_ANALYZER_VERBOSE)
+        //     std::cout << "installing variable symbol " << sym.name;
+        //     if (sym.type.is_array) {
+        //         std::cout << " dim " << sym.type.dimensions->size();
+        //     }
+        //     std::cout << std::endl;
+        //     st.print();
+        // #endif
+        SymbolTable<SplVariableSymbol>::install_symbol(st, sym);
+        // #if defined(SPL_SEMANTIC_ANALYZER_VERBOSE)
+        //     st.print();
+        // #endif
+    }
+    void print() {
+        std::cout << "Variable Symbol Table:" << std::endl;
+        for (auto it = this->cbegin(); it != this->cend(); ++it) {
+            std::cout << it->first << ": ";
+            switch (it->second.type.exp_type) {
+                case SplExpType::SPL_EXP_INT:
+                    std::cout << "int";
+                    break;
+                case SplExpType::SPL_EXP_FLOAT:
+                    std::cout << "float";
+                    break;
+                case SplExpType::SPL_EXP_CHAR:
+                    std::cout << "char";
+                    break;
+                case SplExpType::SPL_EXP_STRUCT:
+                    std::cout << "struct " << *(it->second.type.struct_name);
+                    break;
+            }
+            if (it->second.type.is_array) {
+                std::cout << " array";
+                for (auto dim: *(it->second.type.dimensions)) {
+                    std::cout << "[" << dim << "]";
+                }
+            }
+            std::cout << std::endl;
+        }
+    }
+};
+
 
 struct SplStructSymbol: Symbol {
     SymbolTable<SplVariableSymbol> members;
 };
-typedef SymbolTable<SplStructSymbol> StructSymbolTable;
+class StructSymbolTable : public SymbolTable<SplStructSymbol> {
+public:
+    static void install_symbol(StructSymbolTable &st, const SplStructSymbol &sym) {
+        SymbolTable<SplStructSymbol>::install_symbol(st, sym);
+    }
+};
 
 struct SplFunctionSymbol: Symbol {
     SplExpExactType return_type;  // notice that spl does not support array return type
     std::vector<SplVariableSymbol> params;
 };
-
-typedef SymbolTable<SplFunctionSymbol> FunctionSymbolTable;
+class FunctionSymbolTable : public SymbolTable<SplFunctionSymbol> {
+public:
+    static void install_symbol(FunctionSymbolTable &st, const SplFunctionSymbol &sym) {
+        SymbolTable<SplFunctionSymbol>::install_symbol(st, sym);
+    }
+};
 
 typedef union SplVal SplVal;
 union SplVal{
