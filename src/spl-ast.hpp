@@ -2,35 +2,30 @@
 #define SPL_AST_HPP
 
 #include <cstdio>
+#include <iostream>
+#include <string>
 #include <vector>
+#include <unordered_map>
 #include <cassert>
 
+// iterators keeps valid after unordered_map being modified, except for iterator to the modified element
+
+struct SplLoc;
+struct SplAttr;
+union SplVal;
+
+struct SplExpExactType;
+struct SplTypeArray;
+struct SplVariableSymbol;
+struct SplStructSymbol;
+struct SplFunctionSymbol;
+
 enum SplAstNodeType {
-    SPL_EMPTY, SPL_INT, SPL_FLOAT, SPL_CHAR, SPL_TYPE, SPL_ID, SPL_TERMINAL, SPL_NONTERMINAL,
-};
-
-typedef union SplVal SplVal;
-union SplVal{
-    struct {
-        char* raw;
-        int value;
-    } val_int;
-    struct {
-        char *raw;
-        float value;    
-    } val_float;
-    struct {
-        char *raw;
-        char value;
-    } val_char;
-    char *val_id;
-    char *val_type;
-};
-
-typedef struct SplAttr SplAttr;
-struct SplAttr {
-    SplAstNodeType type;
-    SplVal *value_p;
+    SPL_EMPTY,  // empty node (in case of empty production in syntax analysis)
+    SPL_INT, SPL_FLOAT, SPL_CHAR, SPL_TYPE, SPL_ID,  // special terminals
+    SPL_TERMINAL,  // other terminals
+    SPL_EXP, SPL_SPECIFIER, SPL_VARDEC, // special non-terminals
+    SPL_NONTERMINAL,  // other nonterminals
 };
 
 // an imitation struct of YYLTYPE
@@ -40,6 +35,117 @@ struct SplLoc{
     int first_column;
     int last_line;
     int last_column;
+};
+
+typedef struct SplAttr SplAttr;
+struct SplAttr {
+    SplAstNodeType type;
+    SplVal *value_p;
+};
+
+enum SplExpType {
+    SPL_EXP_INVALID,
+    SPL_EXP_INT, SPL_EXP_FLOAT, SPL_EXP_CHAR,
+    SPL_EXP_STRUCT,
+};
+
+struct SplTypeArray {
+    SplExpType primitive_type;
+    std::vector<int> *dimensions;
+};
+
+struct SplExpExactType {
+    SplExpType exp_type;
+    std::string *struct_name;  // if exp_type == SplExpType::SPL_EXP_STRUCT
+    // StructSymbolTable::const_iterator *struct_it_ptr;
+    bool is_array;
+    std::vector<int> *dimensions; // if is_array == true
+    static void dup(const SplExpExactType &src, SplExpExactType &dst) {
+        dst.exp_type = src.exp_type;
+        if (src.exp_type == SplExpType::SPL_EXP_STRUCT) {
+            *(dst.struct_name) = *(src.struct_name);  // copy std::string
+        }
+        if (src.is_array && !dst.is_array) {
+            dst.dimensions = new std::vector<int>();
+        }
+        dst.is_array = src.is_array;
+        if (src.is_array) {
+            *(dst.dimensions) = *(src.dimensions);  // copy std::vector
+        }
+    }
+};
+
+struct Symbol {
+    std::string name;
+};
+
+template  <typename T>
+class SymbolTable: public std::unordered_map<std::string, T> {
+public:
+    static void install_symbol(SymbolTable &st, const T &sym) {
+        auto it = st.find(sym.name);
+        if (it != st.end()) {
+            fprintf(stderr, "Error: variable %s has been defined\n", sym.name.c_str());
+            exit(1);
+        }
+        st.insert({sym.name, sym});
+    }
+};
+
+struct SplVariableSymbol: Symbol {
+    SplExpExactType type;
+    SplVariableSymbol(const std::string &name, const SplExpExactType &type) {
+        this->name = name;
+        SplExpExactType::dup(type, this->type);
+    }
+};
+typedef SymbolTable<SplVariableSymbol> VariableSymbolTable;
+
+struct SplStructSymbol: Symbol {
+    SymbolTable<SplVariableSymbol> members;
+};
+typedef SymbolTable<SplStructSymbol> StructSymbolTable;
+
+struct SplFunctionSymbol: Symbol {
+    SplExpExactType return_type;  // notice that spl does not support array return type
+    std::vector<SplVariableSymbol> params;
+};
+
+typedef SymbolTable<SplFunctionSymbol> FunctionSymbolTable;
+
+typedef union SplVal SplVal;
+union SplVal{
+    struct {
+        #if defined(SPL_PARSER_STANDALONE)
+            char* raw;
+        #endif
+        int value;
+    } val_int;
+    struct {
+        #if defined(SPL_PARSER_STANDALONE)
+            char *raw;
+        #endif
+        float value;    
+    } val_float;
+    struct {
+        #if defined(SPL_PARSER_STANDALONE)
+            char *raw;
+        #endif
+        char value;
+    } val_char;
+    char *val_id;
+    char *val_type;  // val for terminal "type"
+    struct {
+        SplExpExactType type;  //
+        int is_lvalue;  //
+    } val_exp;
+    struct {
+        SplExpExactType type;
+    } val_specifier;
+    struct {
+        char *name;
+        SplExpExactType type;
+    } val_vardec;
 };
 
 typedef struct SplAstNode SplAstNode;
@@ -69,7 +175,6 @@ struct SplAstNode{
             this->attr.value_p = nullptr;
         }
         this->loc = loc;
-        // print_formatted(0, 2);
     }
 
     template <typename T>
@@ -83,6 +188,7 @@ struct SplAstNode{
         add_child(rest...);
     }
 
+#if defined(SPL_PARSER_STANDALONE)
     void print_formatted(int indent, int indent_step) {
         /* iterate over children tree with identation */
         if (attr.type == SPL_EMPTY) {
@@ -129,6 +235,8 @@ struct SplAstNode{
             (*it)->print_formatted(indent + indent_step, indent_step);
         }
     }
+#endif
+
 };
 
 #endif  /* SPL_AST_HPP */

@@ -38,5 +38,12 @@ apply `splc` parser on all `.spl` files in specified directory
 
 ## checklist
 
-- [] todo
-
+- [] type system & type propagation in expression
+- [] symbol table
+  - [] variable table
+  - [] struct table
+  - [] function table
+- [] global scoping
+  - [] bonus: local scoping
+- [] bonus: function definition
+- [] bonus: function overload

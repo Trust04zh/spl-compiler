@@ -1,3 +1,4 @@
+#define SPL_PARSER_STANDALONE
 #include "spl-parser-body.cpp"
 #include "spl-ast.hpp"
 #include <cstdio>

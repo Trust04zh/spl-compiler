@@ -204,7 +204,9 @@ rc              "}"
     #if !defined(SPL_LEXER_STANDALONE)
         tmp_splattr = {SPL_INT, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
-        tmp_splval.val_int.raw = strdup(yytext);
+        #if !defined(SPL_LEXER_STANDALONE) && defined(SPL_PARSER_STANDALONE)
+            tmp_splval.val_int.raw = strdup(yytext);
+        #endif
         if (strlen(yytext) >= 2 && (yytext[1] == 'x' || yytext[1] == 'X')) { 
             tmp_splval.val_int.value = strtol(yytext, nullptr, 16);
         } else {
@@ -220,7 +222,9 @@ rc              "}"
     #if !defined(SPL_LEXER_STANDALONE)
         tmp_splattr = {SPL_FLOAT, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
-        tmp_splval.val_float.raw = strdup(yytext);
+        #if !defined(SPL_LEXER_STANDALONE) && defined(SPL_PARSER_STANDALONE)
+            tmp_splval.val_float.raw = strdup(yytext);
+        #endif
         tmp_splval.val_float.value = (float)atof(yytext);
         tmp_splattr.value_p = &tmp_splval;
         yylval = new SplAstNode("FLOAT", tmp_splattr, tmp_splloc);
@@ -232,7 +236,9 @@ rc              "}"
     #if !defined(SPL_LEXER_STANDALONE)
         tmp_splattr = {SPL_CHAR, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
-        tmp_splval.val_char.raw = strdup(yytext);
+        #if !defined(SPL_LEXER_STANDALONE) && defined(SPL_PARSER_STANDALONE)
+            tmp_splval.val_char.raw = strdup(yytext);
+        #endif
         if (yytext[1] == '\\') { 
             char *hex_str = strndup(yytext + 3, 2);
             tmp_splval.val_char.value = strtol(hex_str, nullptr, 16);
