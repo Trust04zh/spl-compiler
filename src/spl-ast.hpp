@@ -152,12 +152,57 @@ public:
 
 struct SplFunctionSymbol: Symbol {
     SplExpExactType return_type;  // notice that spl does not support array return type
-    std::vector<SplVariableSymbol> params;
+    std::vector<SplExpExactType> params;
 };
 class FunctionSymbolTable : public SymbolTable<SplFunctionSymbol> {
 public:
     static void install_symbol(FunctionSymbolTable &st, const SplFunctionSymbol &sym) {
         SymbolTable<SplFunctionSymbol>::install_symbol(st, sym);
+    }
+    void print() {
+        std::cout << "Function Symbol Table:" << std::endl;
+        for (auto it = this->cbegin(); it != this->cend(); ++it) {
+            std::cout << it->first << ": ";
+            switch (it->second.return_type.exp_type) {
+                case SplExpType::SPL_EXP_INT:
+                    std::cout << "int";
+                    break;
+                case SplExpType::SPL_EXP_FLOAT:
+                    std::cout << "float";
+                    break;
+                case SplExpType::SPL_EXP_CHAR:
+                    std::cout << "char";
+                    break;
+                case SplExpType::SPL_EXP_STRUCT:
+                    std::cout << "struct " << *(it->second.return_type.struct_name);
+                    break;
+            }
+            std::cout << " (";
+            for (auto param: it->second.params) {
+                switch (param.exp_type) {
+                    case SplExpType::SPL_EXP_INT:
+                        std::cout << "int";
+                        break;
+                    case SplExpType::SPL_EXP_FLOAT:
+                        std::cout << "float";
+                        break;
+                    case SplExpType::SPL_EXP_CHAR:
+                        std::cout << "char";
+                        break;
+                    case SplExpType::SPL_EXP_STRUCT:
+                        std::cout << "struct " << *(param.struct_name);
+                        break;
+                }
+                if (param.is_array) {
+                    std::cout << " array";
+                    for (auto dim: *(param.dimensions)) {
+                        std::cout << "[" << dim << "]";
+                    }
+                }
+                std::cout << ", ";
+            }
+            std::cout << ")" << std::endl;
+        }
     }
 };
 

@@ -35,6 +35,7 @@ int main(int argc, char **argv){
 
         #if defined(SPL_SEMANTIC_ANALYZER_VERBOSE)
             symbols_var.print();
+            symbols_func.print();
         #endif
         
         if (!hasError) { // if there is no error, print nothing

@@ -20,6 +20,8 @@
 
   #include "spl-lexer-module.cpp"
 
+  // L-attributed
+
   // I really have no idea how to name this variable so that it becomes not so ugly...
   // **use getter** to get this
   SplExpExactType *latest_specifier_exact_type = new SplExpExactType();
@@ -34,6 +36,14 @@
   SplExpExactType*& get_latest_specifier_exact_type() {
     assert(specifier_installed);
     return latest_specifier_exact_type;
+  }
+
+  SplFunctionSymbol *latest_function_symbol = nullptr;
+  void prepare_and_install_return_type_for_function_symbol() {
+    // prepare a new function symbol
+    latest_function_symbol = new SplFunctionSymbol();
+    // install return type for function symbol
+    SplExpExactType::dup(*latest_specifier_exact_type, latest_function_symbol->return_type);
   }
 
   extern VariableSymbolTable symbols_var;
@@ -99,7 +109,9 @@ ExtDef:
     /* "int;" ? */
     | Specifier SEMI  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("ExtDef", tmp_splattr, tmp_splloc, $1, $2); }
     /* function definition */
-    | Specifier FunDec CompSt  {
+    | Specifier FunDec {
+        // TODO: install function
+      } CompSt  {
         yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("ExtDef", tmp_splattr, tmp_splloc, $1, $2, $3);
         // TODO
       }
@@ -228,17 +240,35 @@ VarDec:
         }
     ;
 FunDec:
-      ID LP VarList RP  {
+      ID LP {
+          #if !defined(SPL_PARSER_STANDALONE)
+            prepare_and_install_return_type_for_function_symbol();
+          #endif
+        } VarList RP  {
           yyltype_to_splloc(&@$, &tmp_splloc);
           tmp_splattr = {SPL_NONTERMINAL, nullptr};
           #if !defined(SPL_PARSER_STANDALONE)
-            uninstall_specifier();
+            latest_function_symbol->name = std::string($1->attr.value_p->val_id);
+            FunctionSymbolTable::install_symbol(symbols_func, *latest_function_symbol);
+            latest_function_symbol = nullptr;
           #endif
           $$ = new SplAstNode("FunDec", tmp_splattr, tmp_splloc, $1, $2, $3, $4);
         }
-    | ID LP RP  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("FunDec", tmp_splattr, tmp_splloc, $1, $2, $3); }
+    | ID LP {
+          #if !defined(SPL_PARSER_STANDALONE)
+            prepare_and_install_return_type_for_function_symbol();
+          #endif
+        } RP  {
+          yyltype_to_splloc(&@$, &tmp_splloc);
+          tmp_splattr = {SPL_NONTERMINAL, nullptr};
+          #if !defined(SPL_PARSER_STANDALONE)
+            latest_function_symbol->name = std::string($1->attr.value_p->val_id);
+            FunctionSymbolTable::install_symbol(symbols_func, *latest_function_symbol);
+            latest_function_symbol = nullptr;
+          #endif
+          $$ = new SplAstNode("FunDec", tmp_splattr, tmp_splloc, $1, $2, $3); }
     ;
-VarList :
+VarList:
       ParamDec COMMA VarList  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("VarList", tmp_splattr, tmp_splloc, $1, $2, $3); }
     | ParamDec  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("VarList", tmp_splattr, tmp_splloc, $1); }
     ;
@@ -253,6 +283,10 @@ ParamDec:
               $2->attr.value_p->val_vardec.type
             );
             VariableSymbolTable::install_symbol(symbols_var, symbol);
+            uninstall_specifier();
+            // install parameter for function symbol
+            latest_function_symbol->params.push_back(*(new SplExpExactType()));
+            SplExpExactType::dup(symbol.type, latest_function_symbol->params.back());
           #endif
           $$ = new SplAstNode("ParamDec", tmp_splattr, tmp_splloc, $1, $2);
         }
