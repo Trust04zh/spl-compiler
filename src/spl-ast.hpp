@@ -21,10 +21,19 @@ struct SplStructSymbol;
 struct SplFunctionSymbol;
 
 enum SplAstNodeType {
+    SPL_DUMMY,  // dummy node
     SPL_EMPTY,  // empty node (in case of empty production in syntax analysis)
-    SPL_INT, SPL_FLOAT, SPL_CHAR, SPL_TYPE, SPL_ID,  // special terminals
+    SPL_INT, SPL_FLOAT, SPL_CHAR, SPL_TYPE, SPL_STRUCT, SPL_IF, SPL_ELSE, 
+    SPL_WHILE, SPL_RETURN, SPL_ID, SPL_DOT, SPL_SEMI,
+    SPL_COMMA, SPL_ASSIGN, SPL_LT, SPL_LE, SPL_GT, SPL_GE, SPL_NE,
+    SPL_EQ, SPL_PLUS, SPL_MINUS, SPL_MUL, SPL_DIV, SPL_AND, SPL_OR,
+    SPL_NOT, SPL_LP, SPL_RP, SPL_LB, SPL_RB, SPL_LC, SPL_RC,  // terminals
     SPL_TERMINAL,  // other terminals
-    SPL_EXP, SPL_SPECIFIER, SPL_VARDEC, // special non-terminals
+    SPL_PROGRAM, SPL_EXTDEFLIST, SPL_EXTDEF, SPL_EXTDECLIST, 
+    SPL_SPECIFIER, SPL_STRUCTSPECIFIER, SPL_VARDEC, 
+    SPL_FUNDEC, SPL_VARLIST, SPL_PARAMDEC, SPL_COMPST, 
+    SPL_STMTLIST, SPL_STMT, SPL_DEFLIST, SPL_DEF, SPL_DECLIST, 
+    SPL_DEC, SPL_EXP, SPL_ARGS,  // nonterminals
     SPL_NONTERMINAL,  // other nonterminals
 };
 
@@ -315,40 +324,109 @@ struct SplAstNode{
 #if defined(SPL_PARSER_STANDALONE)
     void print_formatted(int indent, int indent_step) {
         /* iterate over children tree with identation */
-        if (attr.type == SPL_EMPTY) {
-            return;
+        switch (attr.type) {
+            case SPL_PROGRAM:
+            case SPL_EXTDEFLIST:
+            case SPL_EXTDEF:
+            case SPL_EXTDECLIST:
+            case SPL_SPECIFIER:
+            case SPL_STRUCTSPECIFIER:
+            case SPL_VARDEC:
+            case SPL_FUNDEC:
+            case SPL_VARLIST:
+            case SPL_PARAMDEC:
+            case SPL_COMPST:
+            case SPL_STMTLIST:
+            case SPL_STMT:
+            case SPL_DEFLIST:
+            case SPL_DEF:
+            case SPL_DECLIST:
+            case SPL_DEC:
+            case SPL_EXP:
+            case SPL_ARGS:
+            case SPL_NONTERMINAL:
+                if (children.empty()) {
+                    return;
+                }
         }
         for (int i = 0; i < indent; i++) {
             putchar(' ');
         }
-        printf("%s", name);
         switch (attr.type) {
+            case SPL_PROGRAM:
+            case SPL_EXTDEFLIST:
+            case SPL_EXTDEF:
+            case SPL_EXTDECLIST:
+            case SPL_SPECIFIER:
+            case SPL_STRUCTSPECIFIER:
+            case SPL_VARDEC:
+            case SPL_FUNDEC:
+            case SPL_VARLIST:
+            case SPL_PARAMDEC:
+            case SPL_COMPST:
+            case SPL_STMTLIST:
+            case SPL_STMT:
+            case SPL_DEFLIST:
+            case SPL_DEF:
+            case SPL_DECLIST:
+            case SPL_DEC:
+            case SPL_EXP:
+            case SPL_ARGS:
             case SPL_NONTERMINAL:
-                printf(" (%d)", loc.first_line);
+                printf("%s (%d)", name, loc.first_line);
                 break;
+            case SPL_STRUCT:
+            case SPL_IF:
+            case SPL_ELSE:
+            case SPL_WHILE:
+            case SPL_RETURN:
+            case SPL_DOT:
+            case SPL_SEMI:
+            case SPL_COMMA:
+            case SPL_ASSIGN:
+            case SPL_LT:
+            case SPL_LE:
+            case SPL_GT:
+            case SPL_GE:
+            case SPL_NE:
+            case SPL_EQ:
+            case SPL_PLUS:
+            case SPL_MINUS:
+            case SPL_MUL:
+            case SPL_DIV:
+            case SPL_AND:
+            case SPL_OR:
+            case SPL_NOT:
+            case SPL_LP:
+            case SPL_RP:
+            case SPL_LB:
+            case SPL_RB:
+            case SPL_LC:
+            case SPL_RC:    
             case SPL_TERMINAL:
+                printf("%s", name);
                 break;
             case SPL_INT:
                 assert(attr.value_p != nullptr);
-                printf(": %d", attr.value_p->val_int.value);
+                printf("%s: %d", name, attr.value_p->val_int.value);
                 break;
             case SPL_FLOAT:
                 assert(attr.value_p != nullptr);
                 // printf(": %f", attr.value_p->val_float.value);
-                printf(": %s", attr.value_p->val_float.raw);
+                printf("%s: %s", name, attr.value_p->val_float.raw);
                 break;
             case SPL_CHAR:
                 assert(attr.value_p != nullptr);
                 // printf(": %c", attr.value_p->val_char.value);
-                printf(": %s", attr.value_p->val_char.raw);
+                printf("%s: %s", name, attr.value_p->val_char.raw);
                 break;
             case SPL_ID:
                 assert(attr.value_p != nullptr);
-                printf(": %s", attr.value_p->val_id);
+                printf("%s: %s", name, attr.value_p->val_id);
                 break;
             case SPL_TYPE:
                 assert(attr.value_p != nullptr);
-                printf(": %s", attr.value_p->val_type);
+                printf("%s: %s", name, attr.value_p->val_type);
                 break;
             default:
                 assert(false);

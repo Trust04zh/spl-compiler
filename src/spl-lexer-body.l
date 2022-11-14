@@ -265,7 +265,7 @@ rc              "}"
 {struct} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: struct     (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_STRUCT, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("STRUCT", tmp_splattr, tmp_splloc);
         return STRUCT;
@@ -274,7 +274,7 @@ rc              "}"
 {if} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: if         (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_IF, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("IF", tmp_splattr, tmp_splloc);
         return IF;
@@ -283,7 +283,7 @@ rc              "}"
 {else} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: else       (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_ELSE, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("ELSE", tmp_splattr, tmp_splloc);
         return ELSE;
@@ -292,7 +292,7 @@ rc              "}"
 {while} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: while      (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_WHILE, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("WHILE", tmp_splattr, tmp_splloc);
         return WHILE;
@@ -310,7 +310,7 @@ rc              "}"
 {return} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: return     (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_RETURN, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("RETURN", tmp_splattr, tmp_splloc);
         return RETURN;
@@ -341,7 +341,7 @@ rc              "}"
 {dot} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: dot        (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_DOT, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("DOT", tmp_splattr, tmp_splloc);
         return DOT;
@@ -350,7 +350,7 @@ rc              "}"
 {semi} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: semi       (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_SEMI, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("SEMI", tmp_splattr, tmp_splloc);
         return SEMI;
@@ -359,7 +359,7 @@ rc              "}"
 {comma} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: comma      (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_COMMA, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("COMMA", tmp_splattr, tmp_splloc);
         return COMMA;
@@ -368,7 +368,7 @@ rc              "}"
 {assign} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: assign     (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_ASSIGN, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("ASSIGN", tmp_splattr, tmp_splloc);
         return ASSIGN;
@@ -377,7 +377,7 @@ rc              "}"
 {lt} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: lt         (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_LT, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("LT", tmp_splattr, tmp_splloc);
         return LT;
@@ -386,7 +386,7 @@ rc              "}"
 {le} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: le         (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_LE, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("LE", tmp_splattr, tmp_splloc);
         return LE;
@@ -395,7 +395,7 @@ rc              "}"
 {gt} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: gt         (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_GT, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("GT", tmp_splattr, tmp_splloc);
         return GT;
@@ -404,7 +404,7 @@ rc              "}"
 {ge} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: ge         (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_GE, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("GE", tmp_splattr, tmp_splloc);
         return GE;
@@ -413,7 +413,7 @@ rc              "}"
 {ne} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: ne         (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_NE, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("NE", tmp_splattr, tmp_splloc);
         return NE;
@@ -422,7 +422,7 @@ rc              "}"
 {eq} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: eq         (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_EQ, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("EQ", tmp_splattr, tmp_splloc);
         return EQ;
@@ -431,7 +431,7 @@ rc              "}"
 {plus} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: plus       (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_PLUS, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("PLUS", tmp_splattr, tmp_splloc);
         return PLUS;
@@ -440,7 +440,7 @@ rc              "}"
 {minus} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: minus      (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_MINUS, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("MINUS", tmp_splattr, tmp_splloc);
         return MINUS;
@@ -449,7 +449,7 @@ rc              "}"
 {mul} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: mul        (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_MUL, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("MUL", tmp_splattr, tmp_splloc);
         return MUL;
@@ -458,7 +458,7 @@ rc              "}"
 {div} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: div        (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_DIV, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("DIV", tmp_splattr, tmp_splloc);
         return DIV;
@@ -467,7 +467,7 @@ rc              "}"
 {and} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: and        (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_AND, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("AND", tmp_splattr, tmp_splloc);
         return AND;
@@ -476,7 +476,7 @@ rc              "}"
 {or} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: or         (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_OR, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("OR", tmp_splattr, tmp_splloc);
         return OR;
@@ -485,7 +485,7 @@ rc              "}"
 {not} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: not        (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_NOT, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("NOT", tmp_splattr, tmp_splloc);
         return NOT;
@@ -494,7 +494,7 @@ rc              "}"
 {lp} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: lp         (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_LP, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("LP", tmp_splattr, tmp_splloc);
         return LP;
@@ -503,7 +503,7 @@ rc              "}"
 {rp} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: rp         (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_RP, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("RP", tmp_splattr, tmp_splloc);
         return RP;
@@ -512,7 +512,7 @@ rc              "}"
 {lb} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: lb         (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_LB, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("LB", tmp_splattr, tmp_splloc);
         return LB;
@@ -521,7 +521,7 @@ rc              "}"
 {rb} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: rb         (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_RB, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("RB", tmp_splattr, tmp_splloc);
         return RB;
@@ -530,7 +530,7 @@ rc              "}"
 {lc} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: lc         (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_LC, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("LC", tmp_splattr, tmp_splloc);
         return LC;
@@ -539,7 +539,7 @@ rc              "}"
 {rc} {
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: rc         (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
-        tmp_splattr = {SPL_TERMINAL, nullptr};
+        tmp_splattr = {SPL_RC, nullptr};
         yyltype_to_splloc(&yylloc, &tmp_splloc);
         yylval = new SplAstNode("RC", tmp_splattr, tmp_splloc);
         return RC;
