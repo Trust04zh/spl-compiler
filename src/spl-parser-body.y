@@ -43,7 +43,7 @@
     // prepare a new function symbol
     latest_function_symbol = new SplFunctionSymbol();
     // install return type for function symbol
-    SplExpExactType::dup(*latest_specifier_exact_type, latest_function_symbol->return_type);
+    SplExpExactType::dup(*get_latest_specifier_exact_type(), latest_function_symbol->return_type);
   }
 
   extern VariableSymbolTable symbols_var;
@@ -109,12 +109,7 @@ ExtDef:
     /* "int;" ? */
     | Specifier SEMI  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("ExtDef", tmp_splattr, tmp_splloc, $1, $2); }
     /* function definition */
-    | Specifier FunDec {
-        // TODO: install function
-      } CompSt  {
-        yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("ExtDef", tmp_splattr, tmp_splloc, $1, $2, $3);
-        // TODO
-      }
+    | Specifier FunDec CompSt  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("ExtDef", tmp_splattr, tmp_splloc, $1, $2, $3); }
     ;
 /* Can declare but cannot define global variables */
 ExtDecList:
@@ -169,16 +164,16 @@ Specifier:
           $$ = new SplAstNode("Specifier", tmp_splattr, tmp_splloc, $1);
         }
     | StructSpecifier  {
-        yyltype_to_splloc(&@$, &tmp_splloc);
-        #if defined(SPL_PARSER_STANDALONE)
-          tmp_splattr = {SPL_NONTERMINAL, nullptr};
-        #else
-          tmp_splattr = {SPL_SPECIFIER, nullptr};
-          // TODO: install specifier
-          tmp_splattr.value_p = &tmp_splval;
-        #endif
-        $$ = new SplAstNode("Specifier", tmp_splattr, tmp_splloc, $1);
-      }
+          yyltype_to_splloc(&@$, &tmp_splloc);
+          #if defined(SPL_PARSER_STANDALONE)
+            tmp_splattr = {SPL_NONTERMINAL, nullptr};
+          #else
+            tmp_splattr = {SPL_SPECIFIER, nullptr};
+            // TODO: install struct symbol
+            tmp_splattr.value_p = &tmp_splval;
+          #endif
+          $$ = new SplAstNode("Specifier", tmp_splattr, tmp_splloc, $1);
+        }
     ;
 StructSpecifier:
     /* struct definition */
@@ -187,21 +182,21 @@ StructSpecifier:
           #if !defined(SPL_PARSER_STANDALONE)
             SplStructSymbol symbol;
             symbol.name = $2->attr.value_p->val_id;
-            // TODO
+            // TODO: install struct symbol
           #endif
         }
     /* may be struct declaration */
     | STRUCT ID  {
-        yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("StructSpecifier", tmp_splattr, tmp_splloc, $1, $2);
-        #if !defined(SPL_PARSER_STANDALONE)
-          std::string name($2->attr.value_p->val_id);
-          if (symbols_struct.find(name) != symbols_struct.cend()) {
-            // TODO
-          } else {
-            // TODO
-          }
-        #endif
-      }
+          yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("StructSpecifier", tmp_splattr, tmp_splloc, $1, $2);
+          #if !defined(SPL_PARSER_STANDALONE)
+            std::string name($2->attr.value_p->val_id);
+            if (symbols_struct.find(name) != symbols_struct.cend()) {
+              // TODO: construct struct specifier
+            } else {
+              // TODO: declare struct / undeclared usage
+            }
+          #endif
+        }
     ;
 
 /* declarator */
@@ -285,7 +280,9 @@ ParamDec:
             VariableSymbolTable::install_symbol(symbols_var, symbol);
             uninstall_specifier();
             // install parameter for function symbol
-            latest_function_symbol->params.push_back(*(new SplExpExactType()));
+            auto tmp = new SplExpExactType();
+            latest_function_symbol->params.push_back(*tmp);
+            delete tmp;
             SplExpExactType::dup(symbol.type, latest_function_symbol->params.back());
           #endif
           $$ = new SplAstNode("ParamDec", tmp_splattr, tmp_splloc, $1, $2);
@@ -390,10 +387,68 @@ Exp:
     | ID LP RP  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("Exp", tmp_splattr, tmp_splloc, $1, $2, $3); }
     | Exp LB Exp RB  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("Exp", tmp_splattr, tmp_splloc, $1, $2, $3, $4); }
     | Exp DOT ID  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("Exp", tmp_splattr, tmp_splloc, $1, $2, $3); }
-    | ID  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("Exp", tmp_splattr, tmp_splloc, $1); }
-    | INT  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("Exp", tmp_splattr, tmp_splloc, $1); }
-    | FLOAT  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("Exp", tmp_splattr, tmp_splloc, $1); }
-    | CHAR  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("Exp", tmp_splattr, tmp_splloc, $1); }
+    | ID  {
+          yyltype_to_splloc(&@$, &tmp_splloc);
+          #if defined(SPL_PARSER_STANDALONE)
+            tmp_splattr = {SPL_NONTERMINAL, nullptr};
+          #else
+            tmp_splattr = {SPL_EXP, nullptr};
+            std::string id = std::string($1->attr.value_p->val_id);
+            auto it = symbols_var.find(id);
+            if (it != symbols_var.end()) {
+              SplExpExactType::dup(it->second.type, tmp_splval.val_exp.type);
+              tmp_splval.val_exp.is_lvalue = true;
+            } else {
+              // TODO: add error report
+              printf("Error: %s is not defined\n", $1->attr.value_p->val_id);
+              exit(1);
+            }
+            tmp_splattr.value_p = &tmp_splval;
+          #endif
+          $$ = new SplAstNode("Exp", tmp_splattr, tmp_splloc, $1);
+        }
+    | INT  {
+          yyltype_to_splloc(&@$, &tmp_splloc);
+          #if defined(SPL_PARSER_STANDALONE)
+            tmp_splattr = {SPL_NONTERMINAL, nullptr};
+          #else
+            tmp_splattr = {SPL_EXP, nullptr};
+            auto ptr = SplExpExactType::create_int();
+            tmp_splval.val_exp.type = *ptr;
+            delete ptr;
+            tmp_splval.val_exp.is_lvalue = false;
+            tmp_splattr.value_p = &tmp_splval;
+          #endif
+          $$ = new SplAstNode("Exp", tmp_splattr, tmp_splloc, $1);
+        }
+    | FLOAT  {
+          yyltype_to_splloc(&@$, &tmp_splloc);
+          #if defined(SPL_PARSER_STANDALONE)
+            tmp_splattr = {SPL_NONTERMINAL, nullptr};
+          #else
+            tmp_splattr = {SPL_EXP, nullptr};
+            auto ptr = SplExpExactType::create_float();
+            tmp_splval.val_exp.type = *ptr;
+            delete ptr;
+            tmp_splval.val_exp.is_lvalue = false;
+            tmp_splattr.value_p = &tmp_splval;
+          #endif
+          $$ = new SplAstNode("Exp", tmp_splattr, tmp_splloc, $1);
+        }
+    | CHAR  {
+          yyltype_to_splloc(&@$, &tmp_splloc);
+          #if defined(SPL_PARSER_STANDALONE)
+            tmp_splattr = {SPL_NONTERMINAL, nullptr};
+          #else
+            tmp_splattr = {SPL_EXP, nullptr};
+            auto ptr = SplExpExactType::create_char();
+            tmp_splval.val_exp.type = *ptr;
+            delete ptr;
+            tmp_splval.val_exp.is_lvalue = false;
+            tmp_splattr.value_p = &tmp_splval;
+          #endif
+          $$ = new SplAstNode("Exp", tmp_splattr, tmp_splloc, $1);
+        }
     ;
 Args:
       Exp COMMA Args  { yyltype_to_splloc(&@$, &tmp_splloc); tmp_splattr = {SPL_NONTERMINAL, nullptr}; $$ = new SplAstNode("Args", tmp_splattr, tmp_splloc, $1, $2, $3); }

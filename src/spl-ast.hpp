@@ -68,6 +68,43 @@ struct SplExpExactType {
         }
         dst.is_array = src.is_array;
     }
+    static SplExpExactType* create_int() {
+        SplExpExactType *ret = new SplExpExactType();
+        ret->exp_type = SplExpType::SPL_EXP_INT;
+        ret->is_array = false;
+        return ret;
+    }
+    static SplExpExactType* create_float() {
+        SplExpExactType *ret = new SplExpExactType();
+        ret->exp_type = SplExpType::SPL_EXP_FLOAT;
+        ret->is_array = false;
+        return ret;
+    }
+    static SplExpExactType* create_char() {
+        SplExpExactType *ret = new SplExpExactType();
+        ret->exp_type = SplExpType::SPL_EXP_CHAR;
+        ret->is_array = false;
+        return ret;
+    }
+    static bool equal(const SplExpExactType &lhs, const SplExpExactType &rhs) {
+        if (lhs.exp_type != rhs.exp_type) {
+            return false;
+        }
+        if (lhs.exp_type == SplExpType::SPL_EXP_STRUCT) {
+            if (*(lhs.struct_name) != *(rhs.struct_name)) {
+                return false;
+            }
+        }
+        if (lhs.is_array != rhs.is_array) {
+            return false;
+        }
+        if (lhs.is_array) {
+            if (lhs.dimensions->size() != rhs.dimensions->size()) {
+                return false;
+            }
+        }
+        return true;
+    }
 };
 
 struct Symbol {
@@ -229,8 +266,8 @@ union SplVal{
     char *val_id;
     char *val_type;  // val for terminal "type"
     struct {
-        SplExpExactType type;  //
-        int is_lvalue;  //
+        SplExpExactType type;
+        int is_lvalue;
     } val_exp;
     struct {
         SplExpExactType type;
