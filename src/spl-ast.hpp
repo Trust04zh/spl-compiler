@@ -58,15 +58,15 @@ struct SplExpExactType {
     std::string *struct_name;  // if exp_type == SplExpType::SPL_EXP_STRUCT
     bool is_array;
     std::vector<int> *dimensions; // if is_array == true
-    static void dup(const SplExpExactType &src, SplExpExactType &dst) {
-        dst.exp_type = src.exp_type;
-        if (src.exp_type == SplExpType::SPL_EXP_STRUCT) {
-            *(dst.struct_name) = *(src.struct_name);  // copy std::string
+    static void dup(const SplExpExactType *src, SplExpExactType *dst) {
+        dst->exp_type = src->exp_type;
+        if (src->exp_type == SplExpType::SPL_EXP_STRUCT) {
+            *(dst->struct_name) = *(src->struct_name);  // copy std::string
         }
-        if (src.is_array) {
-            dst.dimensions = new std::vector<int>(*src.dimensions);
+        if (src->is_array) {
+            dst->dimensions = new std::vector<int>(*src->dimensions);
         }
-        dst.is_array = src.is_array;
+        dst->is_array = src->is_array;
     }
     static SplExpExactType* create_int() {
         SplExpExactType *ret = new SplExpExactType();
@@ -107,51 +107,30 @@ struct SplExpExactType {
     }
 };
 
-struct Symbol {
+struct SplVariableSymbol {
     std::string name;
-};
-
-template  <typename T>
-class SymbolTable: public std::unordered_map<std::string, T> {
-protected:
-    static void install_symbol(SymbolTable &st, const T &sym) {
-        auto it = st.find(sym.name);
-        if (it != st.end()) {
-            fprintf(stderr, "Error: variable %s has been defined\n", sym.name.c_str());
-            exit(1);
-        }
-        st.insert({sym.name, sym});
-    }
-};
-
-struct SplVariableSymbol: Symbol {
-    SplExpExactType type;
-    SplVariableSymbol(const std::string &name, const SplExpExactType &type) {
+    SplExpExactType *type;
+    SplVariableSymbol(const std::string &name, const SplExpExactType *type) {
         this->name = name;
+        this->type = new SplExpExactType();
         SplExpExactType::dup(type, this->type);
     }
 };
-class VariableSymbolTable: public SymbolTable<SplVariableSymbol> {
+class VariableSymbolTable: public std::unordered_map<std::string, SplVariableSymbol*> {
 public:
-    static void install_symbol(VariableSymbolTable &st, const SplVariableSymbol &sym) {
-        // #if defined(SPL_SEMANTIC_ANALYZER_VERBOSE)
-        //     std::cout << "installing variable symbol " << sym.name;
-        //     if (sym.type.is_array) {
-        //         std::cout << " dim " << sym.type.dimensions->size();
-        //     }
-        //     std::cout << std::endl;
-        //     st.print();
-        // #endif
-        SymbolTable<SplVariableSymbol>::install_symbol(st, sym);
-        // #if defined(SPL_SEMANTIC_ANALYZER_VERBOSE)
-        //     st.print();
-        // #endif
+    static void install_symbol(VariableSymbolTable &st, SplVariableSymbol *sym) {
+        auto it = st.find(sym->name);
+        if (it != st.end()) {
+            fprintf(stderr, "Error: variable %s has been defined\n", sym->name.c_str());
+            exit(1);
+        }
+        st.insert({sym->name, sym});
     }
     void print() {
         std::cout << "Variable Symbol Table:" << std::endl;
-        for (auto it = this->cbegin(); it != this->cend(); ++it) {
+        for (auto it = this->begin(); it != this->end(); ++it) {
             std::cout << it->first << ": ";
-            switch (it->second.type.exp_type) {
+            switch (it->second->type->exp_type) {
                 case SplExpType::SPL_EXP_INT:
                     std::cout << "int";
                     break;
@@ -162,12 +141,12 @@ public:
                     std::cout << "char";
                     break;
                 case SplExpType::SPL_EXP_STRUCT:
-                    std::cout << "struct " << *(it->second.type.struct_name);
+                    std::cout << "struct " << *(it->second->type->struct_name);
                     break;
             }
-            if (it->second.type.is_array) {
+            if (it->second->type->is_array) {
                 std::cout << " array";
-                for (auto dim: *(it->second.type.dimensions)) {
+                for (auto dim: *(it->second->type->dimensions)) {
                     std::cout << "[" << dim << "]";
                 }
             }
@@ -177,30 +156,45 @@ public:
 };
 
 
-struct SplStructSymbol: Symbol {
-    SymbolTable<SplVariableSymbol> members;
+struct SplStructSymbol {
+    std::string name;
+    VariableSymbolTable members;
 };
-class StructSymbolTable : public SymbolTable<SplStructSymbol> {
+class StructSymbolTable: public std::unordered_map<std::string, SplStructSymbol*> {
 public:
-    static void install_symbol(StructSymbolTable &st, const SplStructSymbol &sym) {
-        SymbolTable<SplStructSymbol>::install_symbol(st, sym);
+    static void install_symbol(StructSymbolTable &st, SplStructSymbol *sym) {
+        auto it = st.find(sym->name);
+        if (it != st.end()) {
+            fprintf(stderr, "Error: structure %s has been defined\n", sym->name.c_str());
+            exit(1);
+        }
+        st.insert({sym->name, sym});
     }
 };
 
-struct SplFunctionSymbol: Symbol {
-    SplExpExactType return_type;  // notice that spl does not support array return type
-    std::vector<SplExpExactType> params;
+struct SplFunctionSymbol {
+    std::string name;
+    SplExpExactType *return_type;  // notice that spl does not support array return type
+    std::vector<SplExpExactType*> params;
+    SplFunctionSymbol() {
+        return_type = new SplExpExactType();
+    }
 };
-class FunctionSymbolTable : public SymbolTable<SplFunctionSymbol> {
+class FunctionSymbolTable: public std::unordered_map<std::string, SplFunctionSymbol*> {
 public:
-    static void install_symbol(FunctionSymbolTable &st, const SplFunctionSymbol &sym) {
-        SymbolTable<SplFunctionSymbol>::install_symbol(st, sym);
+    static void install_symbol(FunctionSymbolTable &st, SplFunctionSymbol *sym) {
+        auto it = st.find(sym->name);
+        if (it != st.end()) {
+            fprintf(stderr, "Error: function %s has been defined\n", sym->name.c_str());
+            exit(1);
+        }
+        st.insert({sym->name, sym});
     }
     void print() {
         std::cout << "Function Symbol Table:" << std::endl;
         for (auto it = this->cbegin(); it != this->cend(); ++it) {
             std::cout << it->first << ": ";
-            switch (it->second.return_type.exp_type) {
+            switch (it->second->return_type->exp_type) {
                 case SplExpType::SPL_EXP_INT:
                     std::cout << "int";
                     break;
@@ -211,12 +205,12 @@ public:
                     std::cout << "char";
                     break;
                 case SplExpType::SPL_EXP_STRUCT:
-                    std::cout << "struct " << *(it->second.return_type.struct_name);
+                    std::cout << "struct " << *(it->second->return_type->struct_name);
                     break;
             }
             std::cout << " (";
-            for (auto param: it->second.params) {
-                switch (param.exp_type) {
+            for (auto param: it->second->params) {
+                switch (param->exp_type) {
                     case SplExpType::SPL_EXP_INT:
                         std::cout << "int";
                         break;
@@ -227,12 +221,12 @@ public:
                         std::cout << "char";
                         break;
                     case SplExpType::SPL_EXP_STRUCT:
-                        std::cout << "struct " << *(param.struct_name);
+                        std::cout << "struct " << *(param->struct_name);
                         break;
                 }
-                if (param.is_array) {
+                if (param->is_array) {
                     std::cout << " array";
-                    for (auto dim: *(param.dimensions)) {
+                    for (auto dim: *(param->dimensions)) {
                         std::cout << "[" << dim << "]";
                     }
                 }
@@ -255,7 +249,7 @@ union SplVal{
         #if defined(SPL_PARSER_STANDALONE)
             char *raw;
         #endif
-        float value;    
+        float value;
     } val_float;
     struct {
         #if defined(SPL_PARSER_STANDALONE)
@@ -266,15 +260,15 @@ union SplVal{
     char *val_id;
     char *val_type;  // val for terminal "type"
     struct {
-        SplExpExactType type;
+        SplExpExactType *type;
         int is_lvalue;
     } val_exp;
     struct {
-        SplExpExactType type;
+        SplExpExactType *type;
     } val_specifier;
     struct {
         char *name;
-        SplExpExactType type;
+        SplExpExactType *type;
     } val_vardec;
 };
 

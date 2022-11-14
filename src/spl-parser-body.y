@@ -26,14 +26,14 @@
   // **use getter** to get this
   SplExpExactType *latest_specifier_exact_type = new SplExpExactType();
   bool specifier_installed = false;
-  void install_specifier(const SplExpExactType * const type) {
+  void install_specifier(SplExpExactType* type) {
     specifier_installed = true;
-    SplExpExactType::dup(*type, *latest_specifier_exact_type);
+    SplExpExactType::dup(type, latest_specifier_exact_type);
   }
   void uninstall_specifier() {
     specifier_installed = false;
   }
-  SplExpExactType*& get_latest_specifier_exact_type() {
+  SplExpExactType* get_latest_specifier_exact_type() {
     assert(specifier_installed);
     return latest_specifier_exact_type;
   }
@@ -43,7 +43,7 @@
     // prepare a new function symbol
     latest_function_symbol = new SplFunctionSymbol();
     // install return type for function symbol
-    SplExpExactType::dup(*get_latest_specifier_exact_type(), latest_function_symbol->return_type);
+    SplExpExactType::dup(get_latest_specifier_exact_type(), latest_function_symbol->return_type);
   }
 
   extern VariableSymbolTable symbols_var;
@@ -129,7 +129,7 @@ ExtVarDec:
           $$ = $1;  // dummy node
           #if !defined(SPL_PARSER_STANDALONE)
             // install global variables
-            SplVariableSymbol symbol(
+            SplVariableSymbol *symbol = new SplVariableSymbol(
               std::string($1->attr.value_p->val_vardec.name),
               $1->attr.value_p->val_vardec.type
             );
@@ -147,19 +147,19 @@ Specifier:
           #else
             tmp_splattr = {SPL_SPECIFIER, nullptr};
             std::string type_str($1->attr.value_p->val_type);
-            SplExpExactType &type = tmp_splval.val_specifier.type;
+            SplExpExactType *&type = tmp_splval.val_specifier.type;
             if (type_str == "int") {
-              type.exp_type = SPL_EXP_INT;
+              type->exp_type = SPL_EXP_INT;
             } else if (type_str == "float") {
-              type.exp_type = SPL_EXP_FLOAT;
+              type->exp_type = SPL_EXP_FLOAT;
             } else if (type_str == "char") {
-              type.exp_type = SPL_EXP_CHAR;
+              type->exp_type = SPL_EXP_CHAR;
             } else {
               assert(false);
             }
-            type.is_array = false;
+            type->is_array = false;
             tmp_splattr.value_p = &tmp_splval;
-            install_specifier(&type);
+            install_specifier(type);
           #endif
           $$ = new SplAstNode("Specifier", tmp_splattr, tmp_splloc, $1);
         }
@@ -208,7 +208,9 @@ VarDec:
           #else
             tmp_splattr = {SPL_VARDEC, nullptr};
             tmp_splval.val_vardec.name = $1->attr.value_p->val_id;
-            tmp_splval.val_vardec.type = *get_latest_specifier_exact_type();
+            tmp_splval.val_vardec.type = new SplExpExactType();
+            SplExpExactType::dup(get_latest_specifier_exact_type(), tmp_splval.val_vardec.type);
+            printf("[DEBUG] A %s %d\n", $1->attr.value_p->val_id, tmp_splval.val_vardec.type->is_array); // FIXME: DEBUG
             tmp_splattr.value_p = &tmp_splval;
           #endif
           $$ = new SplAstNode("VarDec", tmp_splattr, tmp_splloc, $1);
@@ -220,12 +222,15 @@ VarDec:
           #else
             tmp_splattr = {SPL_VARDEC, nullptr};
             tmp_splval.val_vardec.name = $1->attr.value_p->val_vardec.name;
-            tmp_splval.val_vardec.type.exp_type = (*get_latest_specifier_exact_type()).exp_type;
-            tmp_splval.val_vardec.type.is_array = true;
-            std::vector<int> *&dim = tmp_splval.val_vardec.type.dimensions;
+            tmp_splval.val_vardec.type = new SplExpExactType();
+            tmp_splval.val_vardec.type->exp_type = get_latest_specifier_exact_type()->exp_type;
+            printf("[DEBUG] B %s %d\n", $1->attr.value_p->val_vardec.name, $1->attr.value_p->val_vardec.type->is_array); // FIXME: DEBUG
+            tmp_splval.val_vardec.type->is_array = true;
+            std::vector<int> *&dim = tmp_splval.val_vardec.type->dimensions;
+            printf("[DEBUG] B %s %d\n", $1->attr.value_p->val_vardec.name, $1->attr.value_p->val_vardec.type->is_array); // FIXME: DEBUG
             dim = new std::vector<int>();
-            if ($1->attr.value_p->val_vardec.type.is_array) {
-              std::vector<int> *&dim_prev = $1->attr.value_p->val_vardec.type.dimensions;
+            if ($1->attr.value_p->val_vardec.type->is_array) {
+              std::vector<int> *&dim_prev = $1->attr.value_p->val_vardec.type->dimensions;
               dim->insert(dim->end(), dim_prev->begin(), dim_prev->end());
             }
             dim->push_back($3->attr.value_p->val_int.value);
@@ -244,7 +249,7 @@ FunDec:
           tmp_splattr = {SPL_NONTERMINAL, nullptr};
           #if !defined(SPL_PARSER_STANDALONE)
             latest_function_symbol->name = std::string($1->attr.value_p->val_id);
-            FunctionSymbolTable::install_symbol(symbols_func, *latest_function_symbol);
+            FunctionSymbolTable::install_symbol(symbols_func, latest_function_symbol);
             latest_function_symbol = nullptr;
           #endif
           $$ = new SplAstNode("FunDec", tmp_splattr, tmp_splloc, $1, $2, $3, $4);
@@ -258,7 +263,7 @@ FunDec:
           tmp_splattr = {SPL_NONTERMINAL, nullptr};
           #if !defined(SPL_PARSER_STANDALONE)
             latest_function_symbol->name = std::string($1->attr.value_p->val_id);
-            FunctionSymbolTable::install_symbol(symbols_func, *latest_function_symbol);
+            FunctionSymbolTable::install_symbol(symbols_func, latest_function_symbol);
             latest_function_symbol = nullptr;
           #endif
           $$ = new SplAstNode("FunDec", tmp_splattr, tmp_splloc, $1, $2, $3); }
@@ -273,17 +278,15 @@ ParamDec:
           tmp_splattr = {SPL_NONTERMINAL, nullptr};
           #if !defined(SPL_PARSER_STANDALONE)
             // install variables in function parameter definitions
-            SplVariableSymbol symbol(
+            SplVariableSymbol *symbol = new SplVariableSymbol(
               std::string($2->attr.value_p->val_vardec.name),
               $2->attr.value_p->val_vardec.type
             );
             VariableSymbolTable::install_symbol(symbols_var, symbol);
             uninstall_specifier();
             // install parameter for function symbol
-            auto tmp = new SplExpExactType();
-            latest_function_symbol->params.push_back(*tmp);
-            delete tmp;
-            SplExpExactType::dup(symbol.type, latest_function_symbol->params.back());
+            latest_function_symbol->params.push_back(new SplExpExactType());
+            SplExpExactType::dup(symbol->type, latest_function_symbol->params.back());
           #endif
           $$ = new SplAstNode("ParamDec", tmp_splattr, tmp_splloc, $1, $2);
         }
@@ -340,7 +343,7 @@ Dec:
           tmp_splattr = {SPL_NONTERMINAL, nullptr};
           #if !defined(SPL_PARSER_STANDALONE)
             // install local variables
-            SplVariableSymbol symbol(
+            SplVariableSymbol *symbol = new SplVariableSymbol(
               std::string($1->attr.value_p->val_vardec.name),
               $1->attr.value_p->val_vardec.type
             );
@@ -354,7 +357,7 @@ Dec:
           tmp_splattr = {SPL_NONTERMINAL, nullptr};
           #if !defined(SPL_PARSER_STANDALONE)
             // install local variables
-            SplVariableSymbol symbol(
+            SplVariableSymbol *symbol = new SplVariableSymbol(
               std::string($1->attr.value_p->val_vardec.name),
               $1->attr.value_p->val_vardec.type
             );
@@ -396,7 +399,7 @@ Exp:
             std::string id = std::string($1->attr.value_p->val_id);
             auto it = symbols_var.find(id);
             if (it != symbols_var.end()) {
-              SplExpExactType::dup(it->second.type, tmp_splval.val_exp.type);
+              SplExpExactType::dup(it->second->type, tmp_splval.val_exp.type);
               tmp_splval.val_exp.is_lvalue = true;
             } else {
               // TODO: add error report
@@ -413,9 +416,7 @@ Exp:
             tmp_splattr = {SPL_NONTERMINAL, nullptr};
           #else
             tmp_splattr = {SPL_EXP, nullptr};
-            auto ptr = SplExpExactType::create_int();
-            tmp_splval.val_exp.type = *ptr;
-            delete ptr;
+            tmp_splval.val_exp.type = SplExpExactType::create_int();
             tmp_splval.val_exp.is_lvalue = false;
             tmp_splattr.value_p = &tmp_splval;
           #endif
@@ -427,9 +428,7 @@ Exp:
             tmp_splattr = {SPL_NONTERMINAL, nullptr};
           #else
             tmp_splattr = {SPL_EXP, nullptr};
-            auto ptr = SplExpExactType::create_float();
-            tmp_splval.val_exp.type = *ptr;
-            delete ptr;
+            tmp_splval.val_exp.type = SplExpExactType::create_float();
             tmp_splval.val_exp.is_lvalue = false;
             tmp_splattr.value_p = &tmp_splval;
           #endif
@@ -441,9 +440,7 @@ Exp:
             tmp_splattr = {SPL_NONTERMINAL, nullptr};
           #else
             tmp_splattr = {SPL_EXP, nullptr};
-            auto ptr = SplExpExactType::create_char();
-            tmp_splval.val_exp.type = *ptr;
-            delete ptr;
+            tmp_splval.val_exp.type = SplExpExactType::create_char();
             tmp_splval.val_exp.is_lvalue = false;
             tmp_splattr.value_p = &tmp_splval;
           #endif
