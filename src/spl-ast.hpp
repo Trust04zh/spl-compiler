@@ -53,6 +53,7 @@ struct SplAttr {
 };
 
 enum SplExpType {
+    SPL_EXP_INIT,
     SPL_EXP_INT, SPL_EXP_FLOAT, SPL_EXP_CHAR,
     SPL_EXP_STRUCT,
 };
@@ -67,6 +68,12 @@ struct SplExpExactType {
     std::string *struct_name;  // if exp_type == SplExpType::SPL_EXP_STRUCT
     bool is_array;
     std::vector<int> *dimensions; // if is_array == true
+    SplExpExactType() {
+        exp_type = SplExpType::SPL_EXP_INIT;
+        struct_name = nullptr;
+        is_array = false;
+        dimensions = nullptr;
+    }
     static void dup(const SplExpExactType *src, SplExpExactType *dst) {
         dst->exp_type = src->exp_type;
         if (src->exp_type == SplExpType::SPL_EXP_STRUCT) {
@@ -76,24 +83,6 @@ struct SplExpExactType {
             dst->dimensions = new std::vector<int>(*src->dimensions);
         }
         dst->is_array = src->is_array;
-    }
-    static SplExpExactType* create_int() {
-        SplExpExactType *ret = new SplExpExactType();
-        ret->exp_type = SplExpType::SPL_EXP_INT;
-        ret->is_array = false;
-        return ret;
-    }
-    static SplExpExactType* create_float() {
-        SplExpExactType *ret = new SplExpExactType();
-        ret->exp_type = SplExpType::SPL_EXP_FLOAT;
-        ret->is_array = false;
-        return ret;
-    }
-    static SplExpExactType* create_char() {
-        SplExpExactType *ret = new SplExpExactType();
-        ret->exp_type = SplExpType::SPL_EXP_CHAR;
-        ret->is_array = false;
-        return ret;
     }
     static bool equal(const SplExpExactType &lhs, const SplExpExactType &rhs) {
         if (lhs.exp_type != rhs.exp_type) {
@@ -119,7 +108,7 @@ struct SplExpExactType {
 struct SplVariableSymbol {
     std::string name;
     SplExpExactType *type;
-    SplVariableSymbol(const std::string &name, const SplExpExactType *type) {
+    SplVariableSymbol(const std::string name, const SplExpExactType *type) {
         this->name = name;
         this->type = new SplExpExactType();
         SplExpExactType::dup(type, this->type);
@@ -184,7 +173,7 @@ public:
 struct SplFunctionSymbol {
     std::string name;
     SplExpExactType *return_type;  // notice that spl does not support array return type
-    std::vector<SplExpExactType*> params;
+    std::vector<VariableSymbolTable::iterator> params;
     SplFunctionSymbol() {
         return_type = new SplExpExactType();
     }
@@ -203,7 +192,8 @@ public:
         std::cout << "Function Symbol Table:" << std::endl;
         for (auto it = this->cbegin(); it != this->cend(); ++it) {
             std::cout << it->first << ": ";
-            switch (it->second->return_type->exp_type) {
+            auto sym = it->second;
+            switch (sym->return_type->exp_type) {
                 case SplExpType::SPL_EXP_INT:
                     std::cout << "int";
                     break;
@@ -218,8 +208,9 @@ public:
                     break;
             }
             std::cout << " (";
-            for (auto param: it->second->params) {
-                switch (param->exp_type) {
+            for (auto param: sym->params) {
+                auto &type = param->second->type;
+                switch (type->exp_type) {
                     case SplExpType::SPL_EXP_INT:
                         std::cout << "int";
                         break;
@@ -230,12 +221,12 @@ public:
                         std::cout << "char";
                         break;
                     case SplExpType::SPL_EXP_STRUCT:
-                        std::cout << "struct " << *(param->struct_name);
+                        std::cout << "struct " << *(type->struct_name);
                         break;
                 }
-                if (param->is_array) {
+                if (type->is_array) {
                     std::cout << " array";
-                    for (auto dim: *(param->dimensions)) {
+                    for (auto dim: *(type->dimensions)) {
                         std::cout << "[" << dim << "]";
                     }
                 }
@@ -247,6 +238,7 @@ public:
 };
 
 typedef union SplVal SplVal;
+// the lexer (parser) allocates fills splval for listed terminals only
 union SplVal{
     struct {
         #if defined(SPL_PARSER_STANDALONE)
@@ -276,7 +268,7 @@ union SplVal{
         SplExpExactType *type;
     } val_specifier;
     struct {
-        char *name;
+        std::string *name;
         SplExpExactType *type;
     } val_vardec;
 };
