@@ -1,6 +1,6 @@
 #include "spl-parser-module.cpp"
 #include "spl-ast.hpp"
-#include "semantic-error.hpp"
+#include "spl-semantic-error.hpp"
 
 #include <string>
 
@@ -179,8 +179,8 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
                             SplExpExactType::dup(it->second->type, v_exp.type);
                             v_exp.is_lvalue = true;
                         } else {
-                            // TODO: add error report
-                            assert(false);
+                            report_semantic_error(1, current->children[0]);
+                            // FIXME: error recovery
                         }
                         break;
                     } case SplAstNodeType::SPL_INT : {
@@ -206,6 +206,119 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
                         break;
                     }
                 }
+            } else if (current->children.size() == 2) {
+                switch (current->children[0]->attr.type) {
+                    case SplAstNodeType::SPL_MINUS : {
+                        // Exp -> MINUS Exp
+                        // arithmetic operation
+                        auto &v_exp = getSplNodeValuePtr(current)->val_exp;
+                        v_exp.type = new SplExpExactType();
+                        SplExpExactType::dup(getSplNodeValuePtr(current->children[1])->val_exp.type, v_exp.type);
+                        v_exp.is_lvalue = false;
+                        break;
+                    } case SplAstNodeType::SPL_NOT : {
+                        // Exp -> NOT Exp
+                        // boolean operation
+                        auto &v_exp = getSplNodeValuePtr(current)->val_exp;
+                        v_exp.type = new SplExpExactType();
+                        SplExpExactType::dup(getSplNodeValuePtr(current->children[1])->val_exp.type, v_exp.type);
+                        v_exp.is_lvalue = false;
+                        break;
+                    }
+                }
+            } else if (current->children.size() == 3) {
+                switch (current->children[1]->attr.type) {
+                    case SplAstNodeType::SPL_ASSIGN : {
+                        // Exp -> Exp ASSIGN Exp
+                        auto &v_exp = getSplNodeValuePtr(current)->val_exp;
+                        auto &v_exp_lhs = getSplNodeValuePtr(current->children[0])->val_exp;
+                        auto &v_exp_rhs = getSplNodeValuePtr(current->children[2])->val_exp;
+                        if (v_exp_lhs.is_lvalue) {
+                            v_exp.type = new SplExpExactType();
+                            SplExpExactType::dup(v_exp_lhs.type, v_exp.type);
+                            v_exp.is_lvalue = false;
+                        } else {
+                            report_semantic_error(6, current);
+                            // FIXME: error recovery
+                        }
+                        if (v_exp_lhs.type->exp_type != v_exp_rhs.type->exp_type) {
+                            report_semantic_error(5, current);
+                            // FIXME: error recovery
+                        }
+                        break;
+                    } case SplAstNodeType::SPL_AND : 
+                    case SplAstNodeType::SPL_OR : 
+                    case SplAstNodeType::SPL_LT : 
+                    case SplAstNodeType::SPL_LE : 
+                    case SplAstNodeType::SPL_GT :
+                    case SplAstNodeType::SPL_GE :
+                    case SplAstNodeType::SPL_EQ :
+                    case SplAstNodeType::SPL_NE : {
+                        // Exp -> Exp AND Exp
+                        // Exp -> Exp OR Exp
+                        // Exp -> Exp LT Exp
+                        // Exp -> Exp LE Exp
+                        // Exp -> Exp GT Exp
+                        // Exp -> Exp GE Exp
+                        // Exp -> Exp EQ Exp
+                        // Exp -> Exp NE Exp
+                        // boolean operation
+                        auto &v_exp = getSplNodeValuePtr(current)->val_exp;
+                        // auto &v_exp_lhs = getSplNodeValuePtr(current->children[0])->val_exp;
+                        // auto &v_exp_rhs = getSplNodeValuePtr(current->children[2])->val_exp;
+                        // if (v_exp_lhs.type->exp_type == SPL_EXP_INT && v_exp_rhs.type->exp_type == SPL_EXP_INT) {
+                            v_exp.type = new SplExpExactType();
+                            v_exp.type->exp_type = SPL_EXP_INT;
+                            v_exp.is_lvalue = false;
+                        // } else {
+                        //     report_semantic_error(21, current);
+                        //     // FIXME: error recovery
+                        // }
+                        break;
+                    } case SplAstNodeType::SPL_PLUS :
+                    case SplAstNodeType::SPL_MINUS :
+                    case SplAstNodeType::SPL_MUL :
+                    case SplAstNodeType::SPL_DIV : {
+                        // Exp -> Exp PLUS Exp
+                        // Exp -> Exp MINUS Exp
+                        // Exp -> Exp MUL Exp
+                        // Exp -> Exp DIV Exp
+                        // arithmetic operation
+                        auto &v_exp = getSplNodeValuePtr(current)->val_exp;
+                        auto &v_exp_lhs = getSplNodeValuePtr(current->children[0])->val_exp;
+                        auto &v_exp_rhs = getSplNodeValuePtr(current->children[2])->val_exp;
+                        if (v_exp_lhs.type->exp_type == v_exp_rhs.type->exp_type) {
+                            v_exp.type = new SplExpExactType();
+                            v_exp.type->exp_type = v_exp_lhs.type->exp_type;
+                            v_exp.is_lvalue = false;
+                        } else {
+                            report_semantic_error(7, current);
+                            // FIXME: error recovery
+                        }
+                    } case SplAstNodeType::SPL_EXP : {
+                        // Exp -> LP Exp RP
+                        auto &v_exp = getSplNodeValuePtr(current)->val_exp;
+                        auto &v_exp_inner = getSplNodeValuePtr(current->children[1])->val_exp;
+                        v_exp.type = new SplExpExactType();
+                        SplExpExactType::dup(v_exp_inner.type, v_exp.type);
+                        v_exp.is_lvalue = v_exp_inner.is_lvalue;
+                        break;
+                    } case SplAstNodeType::SPL_DOT : {
+                        // Exp -> Exp DOT ID
+                        // TODO: refer to struct member
+                    }
+                }
+            } else if (current->children[0]->attr.type == SplAstNodeType::SPL_ID 
+                    && current->children[1]->attr.type == SplAstNodeType::SPL_LP) {
+                // Exp -> ID LP Args RP
+                // Exp -> ID LP RP
+                // TODO: function call
+            } else if (current->children[0]->attr.type == SplAstNodeType::SPL_EXP
+                    && current->children[1]->attr.type == SplAstNodeType::SPL_LB) {
+                // Exp -> Exp LB Exp RB
+                // TODO: array access
+            } else {
+                assert(false);
             }
         } default: {
             break;
