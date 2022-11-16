@@ -7,7 +7,7 @@ BUILD_DIR = ./build
 BINARY_DIR = ./bin
 
 CPPFLAGS ?= -g
-CPPFLAGS += -I$(SOURCE_DIR) -I$(BUILD_DIR)
+CPPFLAGS += -I$(SOURCE_DIR) -I$(BUILD_DIR) -std=c++17
 
 FLEXFLAGS ?=
 
