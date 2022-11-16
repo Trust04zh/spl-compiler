@@ -1,7 +1,10 @@
 #include <string>
 using std::string;
 
+extern bool hasError;
+
 void report_semantic_error(int type_id, const SplAstNode *const node) {
+    hasError = true;
     int lineno = node->loc.first_line;
     switch (type_id) {
         case 1:

@@ -44,7 +44,34 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
     for (auto child : current->children) {
         traverse(child, current);
     }
-    switch (current->attr.type) { // rules at end of production
+    // bottom-up error propagation
+    switch (current->attr.type) {
+        case SplAstNodeType::SPL_EXP : {
+            for (auto child : current->children) {
+                if (child->attr.type == SplAstNodeType::SPL_EXP) {
+                    // only propagate error from invalid sub expression
+                    if (child->error_propagated) {
+                        current->error_propagated = true;
+                        return;
+                    }
+                }
+            }
+            break;
+        } case SplAstNodeType::SPL_DEC : {
+            for (auto child : current->children) {
+                if (child->attr.type == SplAstNodeType::SPL_VARDEC) {
+                    // only propagate error from invalid variable declaration (failed to install variable symbol)
+                    if (child->error_propagated) {
+                        current->error_propagated = true;
+                        return;
+                    }
+                }
+            }
+            break;
+        }
+    }
+    // bottom-up attribute inference
+    switch (current->attr.type) {
     case SplAstNodeType::SPL_SPECIFIER: {
         SplAstNode *node = current->children[0];
         if (node->attr.type == SplAstNodeType::SPL_TYPE) {
@@ -123,7 +150,12 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
             auto &v_vardec = current->attr.val<SplValVarDec>();
             SplVariableSymbol *symbol =
                 new SplVariableSymbol(v_vardec.name, v_vardec.type);
-            VariableSymbolTable::install_symbol(symbols_var, symbol);
+            bool ret = VariableSymbolTable::install_symbol(symbols_var, symbol);
+            if (!ret) {
+                report_semantic_error(3, current);
+                current->error_propagated = true;
+                return;
+            }
         }
         break;
         // FunDec
@@ -146,8 +178,15 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
     case SplAstNodeType::SPL_DEC: {
         if (current->children.size() == 3) {
             // Dev -> VarDec ASSIGN Exp
-            // TODO: initialize variable
-            // TODO: check type compatibility during assignment
+            auto &value_prev = current->children[0]->attr.val<SplValVarDec>();
+            // TODO: initialize variable, do this in codegen phase
+            auto &v_vardec = current->children[0]->attr.val<SplValVarDec>();
+            auto &v_exp = current->children[2]->attr.val<SplValExp>();
+            if (v_vardec.type->exp_type != v_exp.type->exp_type) {
+                report_semantic_error(5, current);
+                current->error_propagated = true;
+                return;
+            }
         }
         break;
     }
@@ -178,7 +217,8 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
                         std::make_unique<SplValExp>(it->second->type, true);
                 } else {
                     report_semantic_error(1, current->children[0]);
-                    // FIXME: error recovery
+                    current->error_propagated = true;
+                    return;
                 }
                 break;
             }
@@ -220,17 +260,19 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
                 // Exp -> Exp ASSIGN Exp
                 auto &v_exp_lhs = current->children[0]->attr.val<SplValExp>();
                 auto &v_exp_rhs = current->children[2]->attr.val<SplValExp>();
-                if (v_exp_lhs.is_lvalue) {
-                    current->attr.value =
-                        std::make_unique<SplValExp>(v_exp_lhs.type, false);
-                } else {
+                if (!v_exp_lhs.is_lvalue) {
                     report_semantic_error(6, current);
-                    // FIXME: error recovery
+                    current->error_propagated = true;
+                    return;
+
                 }
                 if (v_exp_lhs.type->exp_type != v_exp_rhs.type->exp_type) {
                     report_semantic_error(5, current);
-                    // FIXME: error recovery
+                    current->error_propagated = true;
+                    return;
                 }
+                current->attr.value =
+                        std::make_unique<SplValExp>(v_exp_lhs.type, false);
                 break;
             }
             case SplAstNodeType::SPL_AND:
@@ -252,16 +294,16 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
                 // boolean operation
                 current->attr.value = std::make_unique<SplValExp>(
                     std::make_shared<SplExpExactType>(SPL_EXP_INT), false);
-                // auto &v_exp_lhs =
-                // current->children[0]->attr.value.value().val_exp;
-                // auto &v_exp_rhs =
-                // current->children[2]->attr.value.value().val_exp; if
-                // (v_exp_lhs.type->exp_type == SPL_EXP_INT &&
-                // v_exp_rhs.type->exp_type == SPL_EXP_INT) {
-                // } else {
-                //     report_semantic_error(21, current);
-                //     // FIXME: error recovery
-                // }
+                auto &v_exp_lhs = current->children[0]->attr.val<SplValExp>();
+                auto &v_exp_rhs = current->children[2]->attr.val<SplValExp>();
+                if (v_exp_lhs.type->exp_type == SPL_EXP_INT && v_exp_rhs.type->exp_type == SPL_EXP_INT) {
+                    current->attr.value =
+                            std::make_unique<SplValExp>(std::make_shared<SplExpExactType>(SPL_EXP_INT), false);
+                } else {
+                    report_semantic_error(21, current);
+                    current->error_propagated = true;
+                    return;
+                }
                 break;
             }
             case SplAstNodeType::SPL_PLUS:
@@ -281,7 +323,8 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
                         std::make_unique<SplValExp>(v_exp_lhs.type, false);
                 } else {
                     report_semantic_error(7, current);
-                    // FIXME: error recovery
+                    current->error_propagated = true;
+                    return;
                 }
                 break;
             }

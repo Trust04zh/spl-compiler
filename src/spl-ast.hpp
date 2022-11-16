@@ -248,15 +248,14 @@ struct SplVariableSymbol {
 class VariableSymbolTable
     : public std::unordered_map<std::string, SplVariableSymbol *> {
   public:
-    static void install_symbol(VariableSymbolTable &st,
+    static bool install_symbol(VariableSymbolTable &st,
                                SplVariableSymbol *sym) {
         auto it = st.find(sym->name);
         if (it != st.end()) {
-            fprintf(stderr, "Error: variable %s has been defined\n",
-                    sym->name.c_str());
-            exit(1);
+            return false;
         }
         st.insert({sym->name, sym});
+        return true;
     }
     void print() {
         std::cout << "Variable Symbol Table:" << std::endl;
@@ -381,6 +380,7 @@ struct SplAstNode {
     char const *name;
     SplAttr attr;
     SplLoc loc;
+    bool error_propagated {false};
 
     SplAstNode(char const *name, SplAttr &&attr, const SplLoc &loc)
         : name(name), attr(std::move(attr)), loc(loc) {}
