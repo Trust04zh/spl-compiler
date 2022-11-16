@@ -4,9 +4,11 @@
 #include <cassert>
 #include <cstdio>
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 // iterators keeps valid after unordered_map being modified, except for iterator
@@ -34,39 +36,90 @@ struct YYLTYPE {
 #endif
 
 // the lexer (parser) allocates fills splval for listed terminals only
-union SplVal {
-    struct {
-#if defined(SPL_PARSER_STANDALONE)
-        char *raw;
-#endif
-        int value;
-    } val_int;
-    struct {
-#if defined(SPL_PARSER_STANDALONE)
-        char *raw;
-#endif
-        float value;
-    } val_float;
-    struct {
-#if defined(SPL_PARSER_STANDALONE)
-        char *raw;
-#endif
-        char value;
-    } val_char;
-    char *val_id;
-    char *val_type; // val for terminal "type"
-    struct {
-        SplExpExactType *type;
-        int is_lvalue;
-    } val_exp;
-    struct {
-        SplExpExactType *type;
-    } val_specifier;
-    struct {
-        std::string *name;
-        SplExpExactType *type;
-    } val_vardec;
+struct SplVal {
+    std::string debug_type;
+    explicit SplVal(const std::string &type) : debug_type(type) {}
 };
+
+struct SplValValue : public SplVal {
+    std::variant<int, float, char> value;
+#if defined(SPL_PARSER_STANDALONE)
+    std::string raw;
+    SplValValue(const std::variant<int, float, char> &value,
+                const std::string &raw)
+        : SplVal{"VALUE"}, value(value), raw(raw) {}
+#else
+    SplValValue(const std::variant<int, float, char> &value)
+        : SplVal{"VALUE"}, value(value) {}
+#endif
+};
+
+struct SplValId : public SplVal {
+    std::string val_id;
+    explicit SplValId(const std::string &val_id)
+        : SplVal{"ID"}, val_id(val_id) {}
+};
+
+struct SplValType : public SplVal {
+    std::string val_type;
+    explicit SplValType(const std::string &val_type)
+        : SplVal{"TYPE"}, val_type(val_type) {}
+};
+
+struct SplValExp : public SplVal {
+    std::shared_ptr<SplExpExactType> type;
+    bool is_lvalue;
+    SplValExp(const std::shared_ptr<SplExpExactType> &type, bool is_lvalue)
+        : SplVal{"Exp"}, type(type), is_lvalue(is_lvalue) {}
+};
+
+struct SplValSpec : public SplVal {
+    std::shared_ptr<SplExpExactType> type;
+    explicit SplValSpec(const std::shared_ptr<SplExpExactType> &type)
+        : SplVal{"Val"}, type(type) {}
+};
+
+struct SplValVarDec : public SplVal {
+    std::string name;
+    std::shared_ptr<SplExpExactType> type;
+    SplValVarDec(const std::string &name,
+                 const std::shared_ptr<SplExpExactType> &type)
+        : SplVal{"VarDec"}, name(name), type(type) {}
+};
+
+// union SplVal {
+//     struct {
+// #if defined(SPL_PARSER_STANDALONE)
+//         char *raw;
+// #endif
+//         int value;
+//     } val_int;
+//     struct {
+// #if defined(SPL_PARSER_STANDALONE)
+//         char *raw;
+// #endif
+//         float value;
+//     } val_float;
+//     struct {
+// #if defined(SPL_PARSER_STANDALONE)
+//         char *raw;
+// #endif
+//         char value;
+//     } val_char;
+//     char *val_id;
+//     char *val_type; // val for terminal "type"
+//     struct {
+//         std::shared_ptr<SplExpExactType> type;
+//         int is_lvalue;
+//     } val_exp;
+//     struct {
+//         std::shared_ptr<SplExpExactType> type;
+//     } val_specifier;
+//     struct {
+//         std::string name;
+//         std::shared_ptr<SplExpExactType> type;
+//     } val_vardec;
+// };
 
 enum SplAstNodeType {
     SPL_DUMMY, // dummy node
@@ -141,7 +194,14 @@ struct SplLoc {
 
 struct SplAttr {
     SplAstNodeType type;
-    std::optional<SplVal> value;
+    std::unique_ptr<SplVal> value;
+
+    SplAttr(SplAstNodeType type, std::unique_ptr<SplVal> &&value): type(type), value(std::move(value)) {}
+    SplAttr(SplAttr &&rhs) : type(rhs.type) { value.swap(rhs.value); }
+
+    template <typename T> T &val() {
+        return static_cast<T &>(*value);
+    }
 };
 
 enum SplExpType {
@@ -158,44 +218,32 @@ struct SplTypeArray {
 };
 
 struct SplExpExactType {
-    SplExpType exp_type;
-    std::string struct_name; // if exp_type == SplExpType::SPL_EXP_STRUCT
-    bool is_array{false};
-    std::vector<int> dimensions; // if is_array == true
+    const SplExpType exp_type;
+    const std::string struct_name; // if exp_type == SplExpType::SPL_EXP_STRUCT
+    const bool is_array{false};
+    const std::vector<int> dimensions; // if is_array == true
 
     explicit SplExpExactType(SplExpType exp_type) : exp_type(exp_type) {}
     SplExpExactType(SplExpType exp_type, const std::string &struct_name)
         : exp_type(exp_type), struct_name(struct_name) {}
+    SplExpExactType(SplExpType exp_type, std::vector<int> &&dimensions)
+        : exp_type(exp_type), is_array(true), dimensions(dimensions) {}
     //   SplExpExactType(const SplExpExactType &) = default;
 
-    static bool equal(const SplExpExactType &lhs, const SplExpExactType &rhs) {
-        if (lhs.exp_type != rhs.exp_type) {
-            return false;
-        }
-        if (lhs.exp_type == SplExpType::SPL_EXP_STRUCT) {
-            if (lhs.struct_name != rhs.struct_name) {
-                return false;
-            }
-        }
-        if (lhs.is_array != rhs.is_array) {
-            return false;
-        }
-        if (lhs.is_array) {
-            if (lhs.dimensions.size() != rhs.dimensions.size()) {
-                return false;
-            }
-        }
-        return true;
+    bool operator==(const SplExpExactType &rhs) const {
+        return !(exp_type != rhs.exp_type || is_array != rhs.is_array ||
+                 (exp_type == SplExpType::SPL_EXP_STRUCT &&
+                  struct_name != rhs.struct_name) ||
+                 (is_array && dimensions.size() != rhs.dimensions.size()));
     }
 };
 
 struct SplVariableSymbol {
     std::string name;
-    SplExpExactType *type;
-    SplVariableSymbol(const std::string name, const SplExpExactType *type) {
-        this->name = name;
-        this->type = new SplExpExactType(*type);
-    }
+    std::shared_ptr<SplExpExactType> type;
+    SplVariableSymbol(const std::string &name,
+                      const std::shared_ptr<SplExpExactType> &type)
+        : name(name), type(type) {}
 };
 class VariableSymbolTable
     : public std::unordered_map<std::string, SplVariableSymbol *> {
@@ -258,34 +306,33 @@ class StructSymbolTable
 };
 
 struct SplFunctionSymbol {
-    std::string name;
-    SplExpExactType
-        *return_type; // notice that spl does not support array return type
+    const std::string name;
+    // notice that spl does not support array return type
+    const std::shared_ptr<SplExpExactType> return_type;
     std::vector<VariableSymbolTable::iterator> params;
-    SplFunctionSymbol() {
-        return_type = new SplExpExactType(SplExpType::SPL_EXP_INIT);
-    }
+
+    SplFunctionSymbol(const std::string &name,
+                      const std::shared_ptr<SplExpExactType> return_type)
+        : name(name), return_type(return_type) {}
 };
 
 class FunctionSymbolTable
-    : public std::unordered_map<std::string, SplFunctionSymbol *> {
+    : public std::unordered_map<std::string, SplFunctionSymbol> {
   public:
     static void install_symbol(FunctionSymbolTable &st,
-                               SplFunctionSymbol *sym) {
-        auto it = st.find(sym->name);
-        if (it != st.end()) {
-            fprintf(stderr, "Error: function %s has been defined\n",
-                    sym->name.c_str());
-            exit(1);
+                               SplFunctionSymbol &&sym) {
+        if (st.find(sym.name) != st.end()) {
+            throw std::runtime_error("Error: function " + sym.name +
+                                     " has been defined\n");
         }
-        st.insert({sym->name, sym});
+        st.emplace(sym.name, sym);
     }
     void print() {
         std::cout << "Function Symbol Table:" << std::endl;
         for (auto it = this->cbegin(); it != this->cend(); ++it) {
             std::cout << it->first << ": ";
             auto sym = it->second;
-            switch (sym->return_type->exp_type) {
+            switch (sym.return_type->exp_type) {
             case SplExpType::SPL_EXP_INT:
                 std::cout << "int";
                 break;
@@ -296,11 +343,11 @@ class FunctionSymbolTable
                 std::cout << "char";
                 break;
             case SplExpType::SPL_EXP_STRUCT:
-                std::cout << "struct " << it->second->return_type->struct_name;
+                std::cout << "struct " << it->second.return_type->struct_name;
                 break;
             }
             std::cout << " (";
-            for (auto param : sym->params) {
+            for (auto param : sym.params) {
                 auto &type = param->second->type;
                 switch (type->exp_type) {
                 case SplExpType::SPL_EXP_INT:
@@ -335,13 +382,13 @@ struct SplAstNode {
     SplAttr attr;
     SplLoc loc;
 
-    SplAstNode(char const *name, const SplAttr &attr, const SplLoc &loc)
-        : name(name), attr(attr), loc(loc) {}
+    SplAstNode(char const *name, SplAttr &&attr, const SplLoc &loc)
+        : name(name), attr(std::move(attr)), loc(loc) {}
 
     template <typename... Args>
-    SplAstNode(char const *name, const SplAttr &attr, const SplLoc &loc,
+    SplAstNode(char const *name, SplAttr &&attr, const SplLoc &loc,
                Args... children)
-        : name(name), attr(attr), loc(loc) {
+        : name(name), attr(std::move(attr)), loc(loc) {
         add_child(children...);
     }
 
@@ -353,6 +400,12 @@ struct SplAstNode {
     void add_child(T first_child, Args... rest) {
         add_child(first_child);
         add_child(rest...);
+    }
+
+    ~SplAstNode() {
+        for (auto &ch : children) {
+            delete ch;
+        }
     }
 
 #if defined(SPL_PARSER_STANDALONE)

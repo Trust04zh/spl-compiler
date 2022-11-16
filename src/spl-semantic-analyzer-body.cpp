@@ -12,27 +12,24 @@ extern VariableSymbolTable symbols_var;
 extern StructSymbolTable symbols_struct;
 extern FunctionSymbolTable symbols_func;
 
-SplExpExactType *latest_specifier_exact_type = nullptr;
+std::shared_ptr<SplExpExactType> latest_specifier_exact_type = nullptr;
 
-void uninstall_specifier() {
-    if (latest_specifier_exact_type != nullptr) {
-        delete latest_specifier_exact_type;
-        latest_specifier_exact_type = nullptr;
+void uninstall_specifier() { latest_specifier_exact_type.reset(); }
+void install_specifier(const std::shared_ptr<SplExpExactType> &type) {
+    latest_specifier_exact_type = type;
+}
+
+std::optional<SplFunctionSymbol> latest_function = std::nullopt;
+void install_function(const std::string &name,
+                      const std::shared_ptr<SplExpExactType> &return_type) {
+    if (latest_function != std::nullopt) {
+        throw std::runtime_error("latest_function is not null");
     }
-}
-void install_specifier(SplExpExactType *type) {
-    uninstall_specifier();
-    latest_specifier_exact_type = new SplExpExactType(*type);
-}
-
-SplFunctionSymbol *latest_function = nullptr;
-void install_function() {
-    assert(latest_function == nullptr);
-    latest_function = new SplFunctionSymbol();
+    latest_function.emplace(name, return_type);
 }
 void uninstall_function() {
     // do not delete latest_function, since it is moved to symbols_func
-    latest_function = nullptr;
+    latest_function.reset();
 }
 
 // postorder traverse the AST and do semantic analysis
@@ -52,7 +49,7 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
         SplAstNode *node = current->children[0];
         if (node->attr.type == SplAstNodeType::SPL_TYPE) {
             // Specifier -> TYPE
-            std::string type_str(node->attr.value.value().val_type);
+            std::string &type_str = node->attr.val<SplValType &>().val_type;
             SplExpType type;
             if (type_str == "int") {
                 type = SPL_EXP_INT;
@@ -63,8 +60,8 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
             } else {
                 throw std::runtime_error("unknown type: " + type_str);
             }
-            auto *exact_type = new SplExpExactType(type);
-            current->attr.value = SplVal{.val_specifier = {exact_type}};
+            auto exact_type = std::make_shared<SplExpExactType>(type);
+            current->attr.value = std::make_unique<SplValSpec>(exact_type);
             install_specifier(exact_type);
         } else if (node->attr.type == SplAstNodeType::SPL_STRUCTSPECIFIER) {
             // Specifier -> StructSpecifier
@@ -81,7 +78,8 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
             // TODO: install struct symbol
         } else if (current->children.size() == 2) {
             // StructSpecifier -> STRUCT ID
-            std::string name(current->children[1]->attr.value.value().val_id);
+            std::string &name =
+                current->children[1]->attr.val<SplValId>().val_id;
             if (symbols_struct.find(name) != symbols_struct.cend()) {
                 // TODO: construct struct specifier
             } else {
@@ -95,26 +93,22 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
     case SplAstNodeType::SPL_VARDEC: {
         if (current->children.size() == 1) {
             // VarDec -> ID
-            current->attr.value = SplVal{.val_vardec{
-                new std::string(
-                    current->children[0]->attr.value.value().val_id),
-                new SplExpExactType(*latest_specifier_exact_type)}};
+            current->attr.value = std::make_unique<SplValVarDec>(
+                current->children[0]->attr.val<SplValId>().val_id,
+                latest_specifier_exact_type);
         } else if (current->children.size() == 4) {
             // VarDec -> VarDec LB INT RB
-            auto &value_prev =
-                current->children[0]->attr.value.value().val_vardec;
-            current->attr.value = SplVal{
-                .val_vardec{new std::string(*value_prev.name),
-                            new SplExpExactType(value_prev.type->exp_type)}};
-            auto &value = current->attr.value.value().val_vardec;
-            value.type->is_array = true;
-            std::vector<int> &dims = value.type->dimensions;
+            auto &value_prev = current->children[0]->attr.val<SplValVarDec>();
+            std::vector<int> dims;
             if (value_prev.type->is_array) {
-                std::vector<int> &dims_prev = value_prev.type->dimensions;
-                dims.insert(dims.begin(), dims_prev.begin(), dims_prev.end());
+                dims = value_prev.type->dimensions;
             }
-            dims.push_back(
-                current->children[2]->attr.value.value().val_int.value);
+            dims.push_back(std::get<int>(
+                current->children[2]->attr.val<SplValValue>().value));
+            current->attr.value = std::make_unique<SplValVarDec>(
+                value_prev.name,
+                std::make_shared<SplExpExactType>(value_prev.type->exp_type,
+                                                  std::move(dims)));
         } else {
             assert(false);
         }
@@ -126,23 +120,24 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
             // Dec -> *VarDec*
             // Dec -> *VarDec* ASSIGNOP Exp
             // install variable symbol
-            auto &v_vardec = current->attr.value.value().val_vardec;
+            auto &v_vardec = current->attr.val<SplValVarDec>();
             SplVariableSymbol *symbol =
-                new SplVariableSymbol(*v_vardec.name, v_vardec.type);
+                new SplVariableSymbol(v_vardec.name, v_vardec.type);
             VariableSymbolTable::install_symbol(symbols_var, symbol);
         }
         break;
         // FunDec
     }
     case SplAstNodeType::SPL_FUNDEC: {
-        FunctionSymbolTable::install_symbol(symbols_func, latest_function);
+        FunctionSymbolTable::install_symbol(symbols_func,
+                                            *std::move(latest_function));
         uninstall_function();
         break;
     case SplAstNodeType::SPL_PARAMDEC:
         // ParamDec -> Specifier VarDec
         // install function param for funcition symbol
         auto it = symbols_var.find(
-            *current->children[1]->attr.value.value().val_vardec.name);
+            current->children[1]->attr.val<SplValVarDec>().name);
         latest_function->params.push_back(it);
         // uninstall specifier
         uninstall_specifier();
@@ -161,11 +156,8 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
             parent->attr.type == SplAstNodeType::SPL_FUNDEC) {
             // FunDec -> ID LP VarList RP
             // FunDec -> ID LP RP
-            install_function();
-            latest_function->return_type =
-                new SplExpExactType(*latest_specifier_exact_type);
-            latest_function->name =
-                std::string(current->attr.value.value().val_id);
+            install_function(current->attr.val<SplValId>().val_id,
+                             latest_specifier_exact_type);
         }
         break;
     }
@@ -179,11 +171,11 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
             switch (current->children[0]->attr.type) {
             case SplAstNodeType::SPL_ID: {
                 // Exp -> ID
-                std::string id(current->children[0]->attr.value.value().val_id);
-                auto it = symbols_var.find(id);
+                auto it = symbols_var.find(
+                    current->children[0]->attr.val<SplValId>().val_id);
                 if (it != symbols_var.end()) {
-                    current->attr.value = SplVal{.val_exp{
-                        new SplExpExactType(*(it->second->type)), true}};
+                    current->attr.value =
+                        std::make_unique<SplValExp>(it->second->type, true);
                 } else {
                     report_semantic_error(1, current->children[0]);
                     // FIXME: error recovery
@@ -192,41 +184,33 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
             }
             case SplAstNodeType::SPL_INT: {
                 // Exp -> INT
-                current->attr.value =
-                    SplVal{.val_exp{new SplExpExactType(SPL_EXP_INT), false}};
+                current->attr.value = std::make_unique<SplValExp>(
+                    std::make_shared<SplExpExactType>(SPL_EXP_INT), false);
                 break;
             }
             case SplAstNodeType::SPL_FLOAT: {
                 // Exp -> FLOAT
-                current->attr.value =
-                    SplVal{.val_exp{new SplExpExactType(SPL_EXP_FLOAT), false}};
+                current->attr.value = std::make_unique<SplValExp>(
+                    std::make_shared<SplExpExactType>(SPL_EXP_FLOAT), false);
                 break;
             }
             case SplAstNodeType::SPL_CHAR: {
                 // Exp -> CHAR
-                current->attr.value =
-                    SplVal{.val_exp{new SplExpExactType(SPL_EXP_CHAR), false}};
+                current->attr.value = std::make_unique<SplValExp>(
+                    std::make_shared<SplExpExactType>(SPL_EXP_CHAR), false);
                 break;
             }
             }
         } else if (current->children.size() == 2) {
             switch (current->children[0]->attr.type) {
+            case SplAstNodeType::SPL_NOT:
             case SplAstNodeType::SPL_MINUS: {
-                // Exp -> MINUS Exp
-                // arithmetic operation
-                auto &v_exp = current->attr.value.value().val_exp;
-                v_exp.type = new SplExpExactType(
-                    *(current->children[1]->attr.value.value().val_exp.type));
-                v_exp.is_lvalue = false;
-                break;
-            }
-            case SplAstNodeType::SPL_NOT: {
                 // Exp -> NOT Exp
                 // boolean operation
-                auto &v_exp = current->attr.value.value().val_exp;
-                v_exp.type = new SplExpExactType(
-                    *(current->children[1]->attr.value.value().val_exp.type));
-                v_exp.is_lvalue = false;
+                // Exp -> MINUS Exp
+                // arithmetic operation
+                current->attr.value = std::make_unique<SplValExp>(
+                    current->children[1]->attr.val<SplValExp>().type, false);
                 break;
             }
             }
@@ -234,13 +218,11 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
             switch (current->children[1]->attr.type) {
             case SplAstNodeType::SPL_ASSIGN: {
                 // Exp -> Exp ASSIGN Exp
-                auto &v_exp_lhs =
-                    current->children[0]->attr.value.value().val_exp;
-                auto &v_exp_rhs =
-                    current->children[2]->attr.value.value().val_exp;
+                auto &v_exp_lhs = current->children[0]->attr.val<SplValExp>();
+                auto &v_exp_rhs = current->children[2]->attr.val<SplValExp>();
                 if (v_exp_lhs.is_lvalue) {
-                    current->attr.value = SplVal{
-                        .val_exp{new SplExpExactType(*v_exp_lhs.type), false}};
+                    current->attr.value =
+                        std::make_unique<SplValExp>(v_exp_lhs.type, false);
                 } else {
                     report_semantic_error(6, current);
                     // FIXME: error recovery
@@ -268,8 +250,8 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
                 // Exp -> Exp EQ Exp
                 // Exp -> Exp NE Exp
                 // boolean operation
-                current->attr.value =
-                    SplVal{.val_exp{new SplExpExactType(SPL_EXP_INT), false}};
+                current->attr.value = std::make_unique<SplValExp>(
+                    std::make_shared<SplExpExactType>(SPL_EXP_INT), false);
                 // auto &v_exp_lhs =
                 // current->children[0]->attr.value.value().val_exp;
                 // auto &v_exp_rhs =
@@ -291,13 +273,12 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
                 // Exp -> Exp MUL Exp
                 // Exp -> Exp DIV Exp
                 // arithmetic operation
-                auto &v_exp_lhs =
-                    current->children[0]->attr.value.value().val_exp;
-                auto &v_exp_rhs =
-                    current->children[2]->attr.value.value().val_exp;
+                auto &v_exp_lhs = current->children[0]->attr.val<SplValExp>();
+                auto &v_exp_rhs = current->children[2]->attr.val<SplValExp>();
+
                 if (v_exp_lhs.type->exp_type == v_exp_rhs.type->exp_type) {
-                    current->attr.value = SplVal{.val_exp{
-                        new SplExpExactType(v_exp_lhs.type->exp_type), false}};
+                    current->attr.value =
+                        std::make_unique<SplValExp>(v_exp_lhs.type, false);
                 } else {
                     report_semantic_error(7, current);
                     // FIXME: error recovery
@@ -306,11 +287,8 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
             }
             case SplAstNodeType::SPL_EXP: {
                 // Exp -> LP Exp RP
-                auto &v_exp_inner =
-                    current->children[1]->attr.value.value().val_exp;
-                current->attr.value =
-                    SplVal{.val_exp{new SplExpExactType(*v_exp_inner.type),
-                                    v_exp_inner.is_lvalue}};
+                current->attr.value = std::make_unique<SplValExp>(
+                    current->children[1]->attr.val<SplValExp>());
                 break;
             }
             case SplAstNodeType::SPL_DOT: {

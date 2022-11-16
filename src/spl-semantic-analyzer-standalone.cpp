@@ -37,6 +37,8 @@ int main(int argc, char **argv){
             symbols_var.print();
             symbols_func.print();
         #endif
+
+        delete prog;
         
         if (!hasError) { // if there is no error, print nothing
             return EXIT_OK;
