@@ -46,29 +46,31 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
     }
     // bottom-up error propagation
     switch (current->attr.type) {
-        case SplAstNodeType::SPL_EXP : {
-            for (auto child : current->children) {
-                if (child->attr.type == SplAstNodeType::SPL_EXP) {
-                    // only propagate error from invalid sub expression
-                    if (child->error_propagated) {
-                        current->error_propagated = true;
-                        return;
-                    }
+    case SplAstNodeType::SPL_EXP: {
+        for (auto child : current->children) {
+            if (child->attr.type == SplAstNodeType::SPL_EXP) {
+                // only propagate error from invalid sub expression
+                if (child->error_propagated) {
+                    current->error_propagated = true;
+                    return;
                 }
             }
-            break;
-        } case SplAstNodeType::SPL_DEC : {
-            for (auto child : current->children) {
-                if (child->attr.type == SplAstNodeType::SPL_VARDEC) {
-                    // only propagate error from invalid variable declaration (failed to install variable symbol)
-                    if (child->error_propagated) {
-                        current->error_propagated = true;
-                        return;
-                    }
-                }
-            }
-            break;
         }
+        break;
+    }
+    case SplAstNodeType::SPL_DEC: {
+        for (auto child : current->children) {
+            if (child->attr.type == SplAstNodeType::SPL_VARDEC) {
+                // only propagate error from invalid variable declaration
+                // (failed to install variable symbol)
+                if (child->error_propagated) {
+                    current->error_propagated = true;
+                    return;
+                }
+            }
+        }
+        break;
+    }
     }
     // bottom-up attribute inference
     switch (current->attr.type) {
@@ -264,7 +266,6 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
                     report_semantic_error(6, current);
                     current->error_propagated = true;
                     return;
-
                 }
                 if (v_exp_lhs.type->exp_type != v_exp_rhs.type->exp_type) {
                     report_semantic_error(5, current);
@@ -272,7 +273,7 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
                     return;
                 }
                 current->attr.value =
-                        std::make_unique<SplValExp>(v_exp_lhs.type, false);
+                    std::make_unique<SplValExp>(v_exp_lhs.type, false);
                 break;
             }
             case SplAstNodeType::SPL_AND:
@@ -296,9 +297,10 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
                     std::make_shared<SplExpExactType>(SPL_EXP_INT), false);
                 auto &v_exp_lhs = current->children[0]->attr.val<SplValExp>();
                 auto &v_exp_rhs = current->children[2]->attr.val<SplValExp>();
-                if (v_exp_lhs.type->exp_type == SPL_EXP_INT && v_exp_rhs.type->exp_type == SPL_EXP_INT) {
-                    current->attr.value =
-                            std::make_unique<SplValExp>(std::make_shared<SplExpExactType>(SPL_EXP_INT), false);
+                if (v_exp_lhs.type->exp_type == SPL_EXP_INT &&
+                    v_exp_rhs.type->exp_type == SPL_EXP_INT) {
+                    current->attr.value = std::make_unique<SplValExp>(
+                        std::make_shared<SplExpExactType>(SPL_EXP_INT), false);
                 } else {
                     report_semantic_error(21, current);
                     current->error_propagated = true;

@@ -196,12 +196,11 @@ struct SplAttr {
     SplAstNodeType type;
     std::unique_ptr<SplVal> value;
 
-    SplAttr(SplAstNodeType type, std::unique_ptr<SplVal> &&value): type(type), value(std::move(value)) {}
+    SplAttr(SplAstNodeType type, std::unique_ptr<SplVal> &&value)
+        : type(type), value(std::move(value)) {}
     SplAttr(SplAttr &&rhs) : type(rhs.type) { value.swap(rhs.value); }
 
-    template <typename T> T &val() {
-        return static_cast<T &>(*value);
-    }
+    template <typename T> T &val() { return static_cast<T &>(*value); }
 };
 
 enum SplExpType {
@@ -380,7 +379,7 @@ struct SplAstNode {
     char const *name;
     SplAttr attr;
     SplLoc loc;
-    bool error_propagated {false};
+    bool error_propagated{false};
 
     SplAstNode(char const *name, SplAttr &&attr, const SplLoc &loc)
         : name(name), attr(std::move(attr)), loc(loc) {}
