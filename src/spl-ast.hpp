@@ -76,7 +76,7 @@ struct SplValExp : public SplVal {
 struct SplValSpec : public SplVal {
     std::shared_ptr<SplExpExactType> type;
     explicit SplValSpec(const std::shared_ptr<SplExpExactType> &type)
-        : SplVal{"Val"}, type(type) {}
+        : SplVal{"Specifier"}, type(type) {}
 };
 
 struct SplValVarDec : public SplVal {
@@ -85,6 +85,12 @@ struct SplValVarDec : public SplVal {
     SplValVarDec(const std::string &name,
                  const std::shared_ptr<SplExpExactType> &type)
         : SplVal{"VarDec"}, name(name), type(type) {}
+};
+
+struct SplValStructSpec : public SplVal {
+    std::string struct_name;
+    SplValStructSpec(const std::string &name)
+        : SplVal{"StructSpecifier"}, struct_name(name) {}
 };
 
 // union SplVal {
@@ -218,7 +224,7 @@ struct SplTypeArray {
 
 struct SplExpExactType {
     const SplExpType exp_type;
-    const std::string struct_name; // if exp_type == SplExpType::SPL_EXP_STRUCT
+    const std::string struct_name; // if isStruct()
     const bool is_array{false};
     const std::vector<int> dimensions; // if is_array == true
 
@@ -228,7 +234,7 @@ struct SplExpExactType {
     SplExpExactType(SplExpType exp_type, std::vector<int> &&dimensions)
         : exp_type(exp_type), is_array(true), dimensions(dimensions) {}
     //   SplExpExactType(const SplExpExactType &) = default;
-
+    bool isStruct() const { return exp_type == SplExpType::SPL_EXP_STRUCT; }
     bool operator==(const SplExpExactType &rhs) const {
         return !(exp_type != rhs.exp_type || is_array != rhs.is_array ||
                  (exp_type == SplExpType::SPL_EXP_STRUCT &&
@@ -238,22 +244,23 @@ struct SplExpExactType {
 };
 
 struct SplVariableSymbol {
-    std::string name;
+    const std::string name;
     std::shared_ptr<SplExpExactType> type;
     SplVariableSymbol(const std::string &name,
                       const std::shared_ptr<SplExpExactType> &type)
         : name(name), type(type) {}
 };
 class VariableSymbolTable
-    : public std::unordered_map<std::string, SplVariableSymbol *> {
+    : public std::unordered_map<std::string,
+                                std::shared_ptr<SplVariableSymbol>> {
   public:
     static bool install_symbol(VariableSymbolTable &st,
-                               SplVariableSymbol *sym) {
+                               std::shared_ptr<SplVariableSymbol> sym) {
         auto it = st.find(sym->name);
         if (it != st.end()) {
             return false;
         }
-        st.insert({sym->name, sym});
+        st.emplace(sym->name, sym);
         return true;
     }
     void print() {
@@ -286,20 +293,29 @@ class VariableSymbolTable
 };
 
 struct SplStructSymbol {
-    std::string name;
+    const std::string name;
     VariableSymbolTable members;
+    SplStructSymbol(const std::string &name) : name(name) {}
 };
 class StructSymbolTable
-    : public std::unordered_map<std::string, SplStructSymbol *> {
+    : public std::unordered_map<std::string, std::shared_ptr<SplStructSymbol>> {
   public:
-    static void install_symbol(StructSymbolTable &st, SplStructSymbol *sym) {
+    static void install_symbol(StructSymbolTable &st,
+                               std::shared_ptr<SplStructSymbol> sym) {
         auto it = st.find(sym->name);
         if (it != st.end()) {
             fprintf(stderr, "Error: structure %s has been defined\n",
                     sym->name.c_str());
             exit(1);
         }
-        st.insert({sym->name, sym});
+        st.emplace(sym->name, sym);
+    }
+    void print() {
+        std::cout << "Struct Symbol Table:" << std::endl;
+        for (auto it = this->begin(); it != this->end(); ++it) {
+            std::cout << it->first << ": ";
+            it->second->members.print();
+        }
     }
 };
 
@@ -376,16 +392,17 @@ class FunctionSymbolTable
 
 struct SplAstNode {
     std::vector<SplAstNode *> children;
-    char const *name;
+    const SplAstNode *parent{nullptr};
+    const char *const name;
     SplAttr attr;
     SplLoc loc;
     bool error_propagated{false};
 
-    SplAstNode(char const *name, SplAttr &&attr, const SplLoc &loc)
+    SplAstNode(const char *name, SplAttr &&attr, const SplLoc &loc)
         : name(name), attr(std::move(attr)), loc(loc) {}
 
     template <typename... Args>
-    SplAstNode(char const *name, SplAttr &&attr, const SplLoc &loc,
+    SplAstNode(const char *name, SplAttr &&attr, const SplLoc &loc,
                Args... children)
         : name(name), attr(std::move(attr)), loc(loc) {
         add_child(children...);
@@ -399,6 +416,13 @@ struct SplAstNode {
     void add_child(T first_child, Args... rest) {
         add_child(first_child);
         add_child(rest...);
+    }
+
+    void completeParent() {
+        for (auto child : children) {
+            child->parent = this;
+            child->completeParent();
+        }
     }
 
     ~SplAstNode() {

@@ -37,6 +37,7 @@ int main(int argc, char **argv) {
 
 #if defined(SPL_SEMANTIC_ANALYZER_VERBOSE)
         symbols_var.print();
+        symbols_struct.print();
         symbols_func.print();
 #endif
 

@@ -1,4 +1,5 @@
 #include <exception>
+#include <optional>
 #include <string>
 
 #include "spl-ast.hpp"
@@ -23,7 +24,7 @@ std::optional<SplFunctionSymbol> latest_function = std::nullopt;
 void install_function(const std::string &name,
                       const std::shared_ptr<SplExpExactType> &return_type) {
     if (latest_function != std::nullopt) {
-        throw std::runtime_error("latest_function is not null");
+        throw std::runtime_error("latest_function is not null when installing");
     }
     latest_function.emplace(name, return_type);
 }
@@ -32,20 +33,58 @@ void uninstall_function() {
     latest_function.reset();
 }
 
+std::shared_ptr<SplStructSymbol> latest_struct = nullptr;
+void install_struct(const std::string &name) {
+    if (latest_struct != nullptr) {
+        throw std::runtime_error("latest_struct is not null when installing");
+    }
+    latest_struct = std::make_shared<SplStructSymbol>(name);
+}
+void uninstall_struct() {
+    // do not delete latest_struct, since it is moved to symbols_struct
+    latest_struct.reset();
+}
+
 // postorder traverse the AST and do semantic analysis
-void traverse(SplAstNode *current, SplAstNode *parent);
+void traverse(SplAstNode *current);
 
 void spl_semantic_analysis() {
-    traverse(prog, nullptr);
+    prog->completeParent();
+    traverse(prog);
     return;
 }
 
-void traverse(SplAstNode *current, SplAstNode *parent) {
+void traverse(SplAstNode *current) {
+    auto parent = current->parent;
     for (auto child : current->children) {
-        traverse(child, current);
+        traverse(child);
     }
     // bottom-up error propagation
     switch (current->attr.type) {
+    case SplAstNodeType::SPL_EXTDEF:
+    case SplAstNodeType::SPL_SPECIFIER: {
+        for (auto child : current->children) {
+            // always propagate error
+            if (child->error_propagated) {
+                current->error_propagated = true;
+                return;
+            }
+        }
+        break;
+    }
+    case SplAstNodeType::SPL_DEC: {
+        for (auto child : current->children) {
+            if (child->attr.type == SplAstNodeType::SPL_VARDEC) {
+                // only propagate error from invalid variable declaration
+                // (i.e. failed to install variable symbol)
+                if (child->error_propagated) {
+                    current->error_propagated = true;
+                    return;
+                }
+            }
+        }
+        break;
+    }
     case SplAstNodeType::SPL_EXP: {
         for (auto child : current->children) {
             if (child->attr.type == SplAstNodeType::SPL_EXP) {
@@ -58,27 +97,28 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
         }
         break;
     }
-    case SplAstNodeType::SPL_DEC: {
-        for (auto child : current->children) {
-            if (child->attr.type == SplAstNodeType::SPL_VARDEC) {
-                // only propagate error from invalid variable declaration
-                // (failed to install variable symbol)
-                if (child->error_propagated) {
-                    current->error_propagated = true;
-                    return;
-                }
+    }
+    // bottom-up attribute inference
+    switch (current->attr.type) {
+    case SplAstNodeType::SPL_EXTDEF: {
+        // EXTDEF -> Specifier SEMI
+        if (current->children.size() == 2) {
+            if (current->children[0]->attr.val<SplValSpec>().type->isStruct()) {
+                throw std::runtime_error("uncaught struct declaration");
+            } else {
+                // invalid statement, "int;" for example
+                report_semantic_error(31, current);
+                current->error_propagated = true;
+                return;
             }
         }
         break;
     }
-    }
-    // bottom-up attribute inference
-    switch (current->attr.type) {
     case SplAstNodeType::SPL_SPECIFIER: {
         SplAstNode *node = current->children[0];
         if (node->attr.type == SplAstNodeType::SPL_TYPE) {
             // Specifier -> TYPE
-            std::string &type_str = node->attr.val<SplValType &>().val_type;
+            std::string &type_str = node->attr.val<SplValType>().val_type;
             SplExpType type;
             if (type_str == "int") {
                 type = SPL_EXP_INT;
@@ -87,14 +127,20 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
             } else if (type_str == "char") {
                 type = SPL_EXP_CHAR;
             } else {
-                throw std::runtime_error("unknown type: " + type_str);
+                throw std::runtime_error("unknown primitive type: " + type_str);
             }
             auto exact_type = std::make_shared<SplExpExactType>(type);
             current->attr.value = std::make_unique<SplValSpec>(exact_type);
             install_specifier(exact_type);
         } else if (node->attr.type == SplAstNodeType::SPL_STRUCTSPECIFIER) {
             // Specifier -> StructSpecifier
-            // TODO: handle struct specifier
+            // handle struct specifier
+            std::string &struct_name =
+                current->children[0]->attr.val<SplValStructSpec>().struct_name;
+            auto exact_type = std::make_shared<SplExpExactType>(
+                SplExpType::SPL_EXP_STRUCT, struct_name);
+            current->attr.value = std::make_unique<SplValSpec>(exact_type);
+            install_specifier(exact_type);
         } else {
             throw std::runtime_error("specifier has child of: " +
                                      std::to_string(node->attr.type));
@@ -104,15 +150,30 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
     case SplAstNodeType::SPL_STRUCTSPECIFIER: {
         if (current->children.size() == 5) {
             // StructSpecifier -> STRUCT ID LC DefList RC
-            // TODO: install struct symbol
+            StructSymbolTable::install_symbol(symbols_struct, latest_struct);
+            uninstall_struct();
+            std::string &name =
+                current->children[1]->attr.val<SplValId>().val_id;
+            current->attr.value = std::make_unique<SplValStructSpec>(name);
         } else if (current->children.size() == 2) {
             // StructSpecifier -> STRUCT ID
             std::string &name =
                 current->children[1]->attr.val<SplValId>().val_id;
             if (symbols_struct.find(name) != symbols_struct.cend()) {
-                // TODO: construct struct specifier
+                current->attr.value = std::make_unique<SplValStructSpec>(name);
             } else {
-                // TODO: declare struct / undeclared usage
+                if (parent != nullptr && parent->parent != nullptr &&
+                    parent->parent->attr.type == SplAstNodeType::SPL_EXTDEF) {
+                    // structure declaration
+                    report_semantic_error(32, current);
+                    current->error_propagated = true;
+                    return;
+                } else {
+                    // undeclared usage
+                    report_semantic_error(33, current);
+                    current->error_propagated = true;
+                    return;
+                }
             }
         } else {
             assert(false);
@@ -148,15 +209,24 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
             // ParamDec -> Specifier *VarDec*
             // Dec -> *VarDec*
             // Dec -> *VarDec* ASSIGNOP Exp
-            // install variable symbol
             auto &v_vardec = current->attr.val<SplValVarDec>();
-            SplVariableSymbol *symbol =
-                new SplVariableSymbol(v_vardec.name, v_vardec.type);
-            bool ret = VariableSymbolTable::install_symbol(symbols_var, symbol);
-            if (!ret) {
-                report_semantic_error(3, current);
-                current->error_propagated = true;
-                return;
+            auto symbol = std::make_shared<SplVariableSymbol>(v_vardec.name,
+                                                              v_vardec.type);
+            if (latest_struct == nullptr) {
+                // install variable symbol
+
+                bool ret =
+                    VariableSymbolTable::install_symbol(symbols_var, symbol);
+                if (!ret) {
+                    report_semantic_error(3, current);
+                    current->error_propagated = true;
+                    return;
+                }
+            } else {
+                // add struct member
+                bool ret = VariableSymbolTable::install_symbol(
+                    latest_struct->members, symbol);
+                // TODO: error report
             }
         }
         break;
@@ -197,8 +267,15 @@ void traverse(SplAstNode *current, SplAstNode *parent) {
             parent->attr.type == SplAstNodeType::SPL_FUNDEC) {
             // FunDec -> ID LP VarList RP
             // FunDec -> ID LP RP
+            // install function symbol with name
             install_function(current->attr.val<SplValId>().val_id,
                              latest_specifier_exact_type);
+        } else if (parent != nullptr &&
+                   parent->attr.type == SplAstNodeType::SPL_STRUCTSPECIFIER &&
+                   parent->children.size() == 5) {
+            // StructSpecifier -> STRUCT ID LC DefList RC
+            // install struct symbol with name
+            install_struct(current->attr.val<SplValId>().val_id);
         }
         break;
     }

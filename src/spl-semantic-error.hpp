@@ -81,10 +81,28 @@ void report_semantic_error(int type_id, const SplAstNode *const node) {
         printf("Error type 15 at Line %d: redefine the same structure type\n",
                lineno);
         break;
+    /* type 2x: trivial error types that conflict with assumptions */
     case 21:
         printf("Error type 21 at Line %d: only int variables can do boolean "
                "operations\n",
                lineno);
+        break;
+    /* type 3x: unclear or undefined behaviors */
+    case 31:
+        printf("Error type 31 at Line %d: a single non-structure type "
+               "specifier with semicolon cannot constitude a statement\n",
+               lineno);
+        break;
+    case 32:
+        printf("Error type 32 at Line %d: spl does not support structure "
+               "declaration without definition\n",
+               lineno);
+        break;
+    case 33:
+        printf("Error type 33 at Line %d: undefined structure type\n", lineno);
+        break;
+    /* type 4x: extra error types */
+    case 41:
         break;
     }
 }
