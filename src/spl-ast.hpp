@@ -184,21 +184,24 @@ enum SplExpType {
 
 struct SplExpExactType {
     const SplExpType exp_type;
-    const std::string struct_name; // if isStruct()
-    const bool is_array{false};
-    const std::vector<int> dimensions; // if is_array == true
+    const std::string struct_name; // if exp_type == SplExpType::SPL_EXP_STRUCT
+    const int array_idx{-1};
+    const std::shared_ptr<std::vector<int>> dims; // if is_array()
 
     explicit SplExpExactType(SplExpType exp_type) : exp_type(exp_type) {}
     SplExpExactType(SplExpType exp_type, const std::string &struct_name)
         : exp_type(exp_type), struct_name(struct_name) {}
-    SplExpExactType(SplExpType exp_type, std::vector<int> &&dimensions)
-        : exp_type(exp_type), is_array(true), dimensions(dimensions) {}
+    SplExpExactType(SplExpType exp_type, std::shared_ptr<std::vector<int>> dims,
+                    const int array_idx = 0)
+        : exp_type(exp_type), dims(dims), array_idx(array_idx) {}
     //   SplExpExactType(const SplExpExactType &) = default;
+    bool is_array() const { return array_idx != -1; }
     bool operator==(const SplExpExactType &rhs) const {
-        return !(exp_type != rhs.exp_type || is_array != rhs.is_array ||
+        return !(exp_type != rhs.exp_type ||
                  (exp_type == SplExpType::SPL_EXP_STRUCT &&
                   struct_name != rhs.struct_name) ||
-                 (is_array && dimensions.size() != rhs.dimensions.size()));
+                 array_idx != rhs.array_idx ||
+                 (is_array() && dims->size() != rhs.dims->size()));
     }
 };
 
@@ -276,9 +279,9 @@ class SplVariableSymbol : public SplSymbol {
             std::cout << "struct " << var_type->struct_name;
             break;
         }
-        if (var_type->is_array) {
+        if (var_type->is_array()) {
             std::cout << " array";
-            for (auto dim : var_type->dimensions) {
+            for (auto dim : *var_type->dims) {
                 std::cout << "[" << dim << "]";
             }
         }

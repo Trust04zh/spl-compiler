@@ -289,11 +289,14 @@ void traverse(SplAstNode *current) {
         } else if (current->children.size() == 4) {
             // VarDec -> VarDec LB INT RB
             auto &value_prev = current->children[0]->attr.val<SplValVarDec>();
-            std::vector<int> dims;
-            if (value_prev.type->is_array) {
-                dims = value_prev.type->dimensions;
+            std::shared_ptr<std::vector<int>> dims;
+            if (value_prev.type->is_array()) {
+                dims =
+                    std::make_shared<std::vector<int>>(*value_prev.type->dims);
+            } else {
+                dims = std::make_shared<std::vector<int>>();
             }
-            dims.push_back(std::get<int>(
+            dims->push_back(std::get<int>(
                 current->children[2]->attr.val<SplValValue>().value));
             current->attr.value = std::make_unique<SplValVarDec>(
                 value_prev.name,
