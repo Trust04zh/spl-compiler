@@ -68,45 +68,135 @@ void traverse(SplAstNode *current) {
     for (auto child : current->children) {
         traverse(child);
     }
-    // bottom-up error propagation
-    switch (current->attr.type) {
-    case SplAstNodeType::SPL_EXTDEF:
-    case SplAstNodeType::SPL_SPECIFIER: {
-        for (auto child : current->children) {
-            // always propagate error
-            if (child->error_propagated) {
+
+    // error propagation for synthesis attributes
+    for (auto child : current->children) {
+        if (child->error_propagated) {
+            current->error_propagated = true;
+        }
+    }
+
+    // error propagation for inherited attrbutes
+    // latest_specifier
+    if (broken_specifier) {
+        switch (current->attr.type) {
+        case SplAstNodeType::SPL_VARDEC: {
+            if (current->children.size() == 1) {
+                // VarDec -> ID
                 current->error_propagated = true;
-                return;
             }
+            break;
         }
-        break;
+        case SplAstNodeType::SPL_ID: {
+            if (parent != nullptr &&
+                parent->attr.type == SplAstNodeType::SPL_FUNDEC) {
+                // FunDec -> *ID* LP VarList RP
+                // FunDec -> *ID* LP RP
+                current->error_propagated = true;
+            }
+            break;
+        }
+        }
     }
-    case SplAstNodeType::SPL_DEC: {
-        for (auto child : current->children) {
-            if (child->attr.type == SplAstNodeType::SPL_VARDEC) {
-                // only propagate error from invalid variable declaration
-                // (i.e. failed to install variable symbol)
-                if (child->error_propagated) {
+    // latest_function
+    if (broken_function) {
+        switch (current->attr.type) {
+        case SplAstNodeType::SPL_PARAMDEC: {
+            // ParamDec -> Specifier VarDec
+            current->error_propagated = true;
+            break;
+        }
+        case SplAstNodeType::SPL_FUNDEC: {
+            // FunDec -> ID LP VarList RP
+            // FunDec -> ID LP RP
+            current->error_propagated = true;
+            break;
+        }
+        }
+    }
+    // latest_struct
+    if (broken_struct) {
+        switch (current->attr.type) {
+        case SplAstNodeType::SPL_VARDEC: {
+            if (parent != nullptr &&
+                parent->attr.type != SplAstNodeType::SPL_VARDEC) {
+                // ExtDecList -> *VarDec*
+                // ExtDecList -> *VarDec* COMMA ExtDecList
+                // ParamDec -> Specifier *VarDec*
+                // Dec -> *VarDec*
+                // Dec -> *VarDec* ASSIGNOP Exp
+                if (on_struct_body) {
                     current->error_propagated = true;
-                    return;
                 }
             }
+            break;
         }
-        break;
+        case SplAstNodeType::SPL_STRUCTSPECIFIER: {
+            if (current->children.size() == 5) {
+                // StructSpecifier -> STRUCT ID LC DefList RC
+                current->error_propagated = true;
+            }
+            break;
+        }
+        }
     }
-    case SplAstNodeType::SPL_EXP: {
-        for (auto child : current->children) {
-            if (child->attr.type == SplAstNodeType::SPL_EXP) {
-                // only propagate error from invalid sub expression
-                if (child->error_propagated) {
-                    current->error_propagated = true;
-                    return;
+
+    // mark broken side effect variables
+    if (current->error_propagated) {
+        // latest_specifier
+        switch (current->attr.type) {
+        case SplAstNodeType::SPL_SPECIFIER: { // install specifier
+            // Specifier -> TYPE
+            // Specifier -> StructSpecifier
+            broken_specifier = true;
+            break;
+        }
+        }
+        // latest_function
+        switch (current->attr.type) {
+        case SplAstNodeType::SPL_ID: { // install function name
+            if (parent != nullptr &&
+                parent->attr.type == SplAstNodeType::SPL_FUNDEC) {
+                // FunDec -> *ID* LP VarList RP
+                // FunDec -> *ID* LP RP
+                broken_function = true;
+            }
+            break;
+        }
+        case SplAstNodeType::SPL_PARAMDEC: { // install function parameter
+            // ParamDec -> Specifier VarDec
+            broken_function = true;
+            break;
+        }
+        }
+        // latest_struct
+        switch (current->attr.type) {
+        case SplAstNodeType::SPL_ID: { // install struct name
+            if (parent != nullptr &&
+                parent->attr.type == SplAstNodeType::SPL_STRUCTSPECIFIER &&
+                parent->children.size() == 5) {
+                broken_struct = true;
+            }
+            break;
+        }
+        case SplAstNodeType::SPL_VARDEC: { // install struct member
+            if (parent != nullptr &&
+                parent->attr.type != SplAstNodeType::SPL_VARDEC) {
+                // ExtDecList -> *VarDec*
+                // ExtDecList -> *VarDec* COMMA ExtDecList
+                // ParamDec -> Specifier *VarDec*
+                // Dec -> *VarDec*
+                // Dec -> *VarDec* ASSIGNOP Exp
+                if (on_struct_body) {
+                    broken_struct = true;
                 }
             }
+            break;
         }
-        break;
+        }
+        return;
     }
-    }
+
     // bottom-up attribute inference
     switch (current->attr.type) {
     case SplAstNodeType::SPL_EXTDEF: {
@@ -238,6 +328,7 @@ void traverse(SplAstNode *current) {
                     // TODO: discriminate error types
                     report_semantic_error(3, current);
                     current->error_propagated = true;
+                    broken_struct = true;
                     return;
                 }
             }
@@ -246,6 +337,8 @@ void traverse(SplAstNode *current) {
         // FunDec
     }
     case SplAstNodeType::SPL_FUNDEC: {
+        // FunDec -> ID LP VarList RP
+        // FunDec -> ID LP RP
         symbols.install_symbol(latest_function);
         uninstall_function();
         break;
@@ -261,7 +354,7 @@ void traverse(SplAstNode *current) {
     }
     case SplAstNodeType::SPL_DEC: {
         if (current->children.size() == 3) {
-            // Dev -> VarDec ASSIGN Exp
+            // Dec -> VarDec ASSIGN Exp
             auto &value_prev = current->children[0]->attr.val<SplValVarDec>();
             // TODO: initialize variable, do this in codegen phase
             auto &v_vardec = current->children[0]->attr.val<SplValVarDec>();
@@ -426,8 +519,8 @@ void traverse(SplAstNode *current) {
     case SplAstNodeType::SPL_ID: {
         if (parent != nullptr &&
             parent->attr.type == SplAstNodeType::SPL_FUNDEC) {
-            // FunDec -> ID LP VarList RP
-            // FunDec -> ID LP RP
+            // FunDec -> *ID* LP VarList RP
+            // FunDec -> *ID* LP RP
             // install function symbol with name
             install_function(current->attr.val<SplValId>().val_id,
                              latest_specifier_exact_type);
