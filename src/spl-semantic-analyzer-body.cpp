@@ -12,34 +12,45 @@ extern bool hasError;
 extern SplSymbolTable symbols;
 
 std::shared_ptr<SplExpExactType> latest_specifier_exact_type = nullptr;
-
-void uninstall_specifier() { latest_specifier_exact_type.reset(); }
+bool broken_specifier = false;
 void install_specifier(const std::shared_ptr<SplExpExactType> &type) {
+    broken_specifier = false;
     latest_specifier_exact_type = type;
+}
+void uninstall_specifier() {
+    broken_specifier = false;
+    latest_specifier_exact_type.reset();
 }
 
 std::shared_ptr<SplFunctionSymbol> latest_function = nullptr;
+bool broken_function = false;
 void install_function(const std::string &name,
                       const std::shared_ptr<SplExpExactType> &return_type) {
     if (latest_function != nullptr) {
         throw std::runtime_error("latest_function is not null when installing");
     }
+    broken_function = false;
     latest_function = std::make_shared<SplFunctionSymbol>(name, return_type);
 }
 void uninstall_function() {
     // do not delete latest_function, since it is moved to symbols_func
+    broken_function = false;
     latest_function.reset();
 }
 
 std::shared_ptr<SplStructSymbol> latest_struct = nullptr;
+bool broken_struct = false;
+bool on_struct_body = false;
 void install_struct(const std::string &name) {
     if (latest_struct != nullptr) {
         throw std::runtime_error("latest_struct is not null when installing");
     }
+    broken_struct = false;
     latest_struct = std::make_shared<SplStructSymbol>(name);
 }
 void uninstall_struct() {
     // do not delete latest_struct, since it is moved to symbols_struct
+    broken_struct = false;
     latest_struct.reset();
 }
 
@@ -211,9 +222,8 @@ void traverse(SplAstNode *current) {
             auto &v_vardec = current->attr.val<SplValVarDec>();
             auto symbol = std::make_shared<SplVariableSymbol>(v_vardec.name,
                                                               v_vardec.type);
-            if (latest_struct == nullptr) {
+            if (!on_struct_body) {
                 // install variable symbol
-
                 bool ret = symbols.install_symbol(symbol);
                 if (ret != SplSymbolTable::SPL_SYM_INSTALL_OK) {
                     // TODO: discriminate error types
@@ -262,28 +272,6 @@ void traverse(SplAstNode *current) {
                 return;
             }
         }
-        break;
-    }
-    case SplAstNodeType::SPL_ID: {
-        if (parent != nullptr &&
-            parent->attr.type == SplAstNodeType::SPL_FUNDEC) {
-            // FunDec -> ID LP VarList RP
-            // FunDec -> ID LP RP
-            // install function symbol with name
-            install_function(current->attr.val<SplValId>().val_id,
-                             latest_specifier_exact_type);
-        } else if (parent != nullptr &&
-                   parent->attr.type == SplAstNodeType::SPL_STRUCTSPECIFIER &&
-                   parent->children.size() == 5) {
-            // StructSpecifier -> STRUCT ID LC DefList RC
-            // install struct symbol with name
-            install_struct(current->attr.val<SplValId>().val_id);
-        }
-        break;
-    }
-    case SplAstNodeType::SPL_SEMI: {
-        // uninstall specifier
-        uninstall_specifier();
         break;
     }
     case SplAstNodeType::SPL_EXP: {
@@ -434,6 +422,44 @@ void traverse(SplAstNode *current) {
         } else {
             assert(false);
         }
+    }
+    case SplAstNodeType::SPL_ID: {
+        if (parent != nullptr &&
+            parent->attr.type == SplAstNodeType::SPL_FUNDEC) {
+            // FunDec -> ID LP VarList RP
+            // FunDec -> ID LP RP
+            // install function symbol with name
+            install_function(current->attr.val<SplValId>().val_id,
+                             latest_specifier_exact_type);
+        } else if (parent != nullptr &&
+                   parent->attr.type == SplAstNodeType::SPL_STRUCTSPECIFIER &&
+                   parent->children.size() == 5) {
+            // StructSpecifier -> STRUCT ID LC DefList RC
+            // install struct symbol with name
+            install_struct(current->attr.val<SplValId>().val_id);
+        }
+        break;
+    }
+    case SplAstNodeType::SPL_SEMI: {
+        // uninstall specifier
+        uninstall_specifier();
+        break;
+    }
+    case SplAstNodeType::SPL_LC: {
+        if (parent != nullptr &&
+            parent->attr.type == SplAstNodeType::SPL_STRUCTSPECIFIER) {
+            // StructSpecifier -> STRUCT ID *LC* DefList RC
+            on_struct_body = true;
+        }
+        break;
+    }
+    case SplAstNodeType::SPL_RC: {
+        if (parent != nullptr &&
+            parent->attr.type == SplAstNodeType::SPL_STRUCTSPECIFIER) {
+            // StructSpecifier -> STRUCT ID *LC* DefList RC
+            on_struct_body = false;
+        }
+        break;
     }
     default: {
         break;
