@@ -8,12 +8,8 @@
 SplAstNode *prog = nullptr;
 bool hasError = false;
 
-// global symbol table for variables
-VariableSymbolTable symbols_var;
-// global symbol table for structs
-StructSymbolTable symbols_struct;
-// global symbol table for functions
-FunctionSymbolTable symbols_func;
+// global symbol table
+SplSymbolTable symbols;
 
 int main(int argc, char **argv) {
     char *file_path;
@@ -36,9 +32,7 @@ int main(int argc, char **argv) {
         spl_semantic_analysis();
 
 #if defined(SPL_SEMANTIC_ANALYZER_VERBOSE)
-        symbols_var.print();
-        symbols_struct.print();
-        symbols_func.print();
+        symbols.print();
 #endif
 
         delete prog;

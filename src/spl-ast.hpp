@@ -18,7 +18,6 @@ struct SplLoc;
 struct SplAttr;
 
 struct SplExpExactType;
-struct SplTypeArray;
 struct SplVariableSymbol;
 struct SplStructSymbol;
 struct SplFunctionSymbol;
@@ -92,40 +91,6 @@ struct SplValStructSpec : public SplVal {
     SplValStructSpec(const std::string &name)
         : SplVal{"StructSpecifier"}, struct_name(name) {}
 };
-
-// union SplVal {
-//     struct {
-// #if defined(SPL_PARSER_STANDALONE)
-//         char *raw;
-// #endif
-//         int value;
-//     } val_int;
-//     struct {
-// #if defined(SPL_PARSER_STANDALONE)
-//         char *raw;
-// #endif
-//         float value;
-//     } val_float;
-//     struct {
-// #if defined(SPL_PARSER_STANDALONE)
-//         char *raw;
-// #endif
-//         char value;
-//     } val_char;
-//     char *val_id;
-//     char *val_type; // val for terminal "type"
-//     struct {
-//         std::shared_ptr<SplExpExactType> type;
-//         int is_lvalue;
-//     } val_exp;
-//     struct {
-//         std::shared_ptr<SplExpExactType> type;
-//     } val_specifier;
-//     struct {
-//         std::string name;
-//         std::shared_ptr<SplExpExactType> type;
-//     } val_vardec;
-// };
 
 enum SplAstNodeType {
     SPL_DUMMY, // dummy node
@@ -217,11 +182,6 @@ enum SplExpType {
     SPL_EXP_STRUCT,
 };
 
-struct SplTypeArray {
-    SplExpType primitive_type;
-    std::vector<int> *dimensions;
-};
-
 struct SplExpExactType {
     const SplExpType exp_type;
     const std::string struct_name; // if isStruct()
@@ -234,7 +194,6 @@ struct SplExpExactType {
     SplExpExactType(SplExpType exp_type, std::vector<int> &&dimensions)
         : exp_type(exp_type), is_array(true), dimensions(dimensions) {}
     //   SplExpExactType(const SplExpExactType &) = default;
-    bool isStruct() const { return exp_type == SplExpType::SPL_EXP_STRUCT; }
     bool operator==(const SplExpExactType &rhs) const {
         return !(exp_type != rhs.exp_type || is_array != rhs.is_array ||
                  (exp_type == SplExpType::SPL_EXP_STRUCT &&
@@ -243,151 +202,138 @@ struct SplExpExactType {
     }
 };
 
-struct SplVariableSymbol {
-    const std::string name;
-    std::shared_ptr<SplExpExactType> type;
-    SplVariableSymbol(const std::string &name,
-                      const std::shared_ptr<SplExpExactType> &type)
-        : name(name), type(type) {}
-};
-class VariableSymbolTable
-    : public std::unordered_map<std::string,
-                                std::shared_ptr<SplVariableSymbol>> {
+enum SplSymbolType { SPL_SYM_VAR, SPL_SYM_STRUCT, SPL_SYM_FUNC };
+
+class SplSymbol {
   public:
-    static bool install_symbol(VariableSymbolTable &st,
-                               std::shared_ptr<SplVariableSymbol> sym) {
+    const std::string name;
+    const SplSymbolType sym_type;
+    explicit SplSymbol(const std::string &name, const SplSymbolType type)
+        : name(name), sym_type(type) {}
+    virtual void print() = 0;
+};
+
+class SplSymbolTable
+    : public std::unordered_map<std::string, std::shared_ptr<SplSymbol>> {
+  public:
+    enum SplSymbolInstallResult {
+        SPL_SYM_INSTALL_OK = 0,
+        SPL_SYM_INSTALL_TYPE_CONFLICT,
+        SPL_SYM_INSTALL_REDEF_FUNC,
+        SPL_SYM_INSTALL_REDEF_STRUCT,
+        SPL_SYM_INSTALL_REDEF_VAR,
+    };
+    static int install_symbol(SplSymbolTable &st,
+                              std::shared_ptr<SplSymbol> sym) {
         auto it = st.find(sym->name);
         if (it != st.end()) {
-            return false;
-        }
-        st.emplace(sym->name, sym);
-        return true;
-    }
-    void print() {
-        std::cout << "Variable Symbol Table:" << std::endl;
-        for (auto it = this->begin(); it != this->end(); ++it) {
-            std::cout << it->first << ": ";
-            switch (it->second->type->exp_type) {
-            case SplExpType::SPL_EXP_INT:
-                std::cout << "int";
-                break;
-            case SplExpType::SPL_EXP_FLOAT:
-                std::cout << "float";
-                break;
-            case SplExpType::SPL_EXP_CHAR:
-                std::cout << "char";
-                break;
-            case SplExpType::SPL_EXP_STRUCT:
-                std::cout << "struct " << it->second->type->struct_name;
-                break;
-            }
-            if (it->second->type->is_array) {
-                std::cout << " array";
-                for (auto dim : it->second->type->dimensions) {
-                    std::cout << "[" << dim << "]";
+            if (it->second->sym_type == sym->sym_type) {
+                switch (sym->sym_type) {
+                case SPL_SYM_VAR:
+                    return SPL_SYM_INSTALL_REDEF_VAR;
+                case SPL_SYM_STRUCT:
+                    return SPL_SYM_INSTALL_REDEF_STRUCT;
+                case SPL_SYM_FUNC:
+                    return SPL_SYM_INSTALL_REDEF_FUNC;
                 }
+            } else {
+                return SPL_SYM_INSTALL_TYPE_CONFLICT;
             }
-            std::cout << std::endl;
-        }
-    }
-};
-
-struct SplStructSymbol {
-    const std::string name;
-    VariableSymbolTable members;
-    SplStructSymbol(const std::string &name) : name(name) {}
-};
-class StructSymbolTable
-    : public std::unordered_map<std::string, std::shared_ptr<SplStructSymbol>> {
-  public:
-    static void install_symbol(StructSymbolTable &st,
-                               std::shared_ptr<SplStructSymbol> sym) {
-        auto it = st.find(sym->name);
-        if (it != st.end()) {
-            fprintf(stderr, "Error: structure %s has been defined\n",
-                    sym->name.c_str());
-            exit(1);
         }
         st.emplace(sym->name, sym);
+        return SPL_SYM_INSTALL_OK;
+    }
+    int install_symbol(std::shared_ptr<SplSymbol> sym) {
+        return install_symbol(*this, sym);
     }
     void print() {
-        std::cout << "Struct Symbol Table:" << std::endl;
-        for (auto it = this->begin(); it != this->end(); ++it) {
-            std::cout << it->first << ": ";
-            it->second->members.print();
+        std::cout << "Symbol Table:" << std::endl;
+        for (auto it = this->cbegin(); it != this->cend(); ++it) {
+            it->second->print();
         }
     }
 };
 
-struct SplFunctionSymbol {
-    const std::string name;
+class SplVariableSymbol : public SplSymbol {
+  public:
+    std::shared_ptr<SplExpExactType> var_type;
+    SplVariableSymbol(const std::string &name,
+                      const std::shared_ptr<SplExpExactType> &var_type)
+        : SplSymbol{name, SplSymbolType::SPL_SYM_VAR}, var_type(var_type) {}
+    void print() {
+        std::cout << "Variable: " << name << " type: ";
+        switch (var_type->exp_type) {
+        case SplExpType::SPL_EXP_INT:
+            std::cout << "int";
+            break;
+        case SplExpType::SPL_EXP_FLOAT:
+            std::cout << "float";
+            break;
+        case SplExpType::SPL_EXP_CHAR:
+            std::cout << "char";
+            break;
+        case SplExpType::SPL_EXP_STRUCT:
+            std::cout << "struct " << var_type->struct_name;
+            break;
+        }
+        if (var_type->is_array) {
+            std::cout << " array";
+            for (auto dim : var_type->dimensions) {
+                std::cout << "[" << dim << "]";
+            }
+        }
+        std::cout << std::endl;
+    }
+};
+
+class SplStructSymbol : public SplSymbol {
+  public:
+    SplSymbolTable members;
+    SplStructSymbol(const std::string &name)
+        : SplSymbol{name, SplSymbolType::SPL_SYM_STRUCT} {}
+    void print() {
+        std::cout << "Struct: " << name << std::endl;
+        members.print();
+    }
+};
+
+class SplFunctionSymbol : public SplSymbol {
+  public:
     // notice that spl does not support array return type
     const std::shared_ptr<SplExpExactType> return_type;
-    std::vector<VariableSymbolTable::iterator> params;
+    std::vector<SplSymbolTable::const_iterator> params;
 
     SplFunctionSymbol(const std::string &name,
                       const std::shared_ptr<SplExpExactType> return_type)
-        : name(name), return_type(return_type) {}
+        : SplSymbol{name, SplSymbolType::SPL_SYM_FUNC},
+          return_type(return_type) {}
+    void print() {
+        std::cout << "Function: " << name << " return type: ";
+        switch (return_type->exp_type) {
+        case SplExpType::SPL_EXP_INT:
+            std::cout << "int";
+            break;
+        case SplExpType::SPL_EXP_FLOAT:
+            std::cout << "float";
+            break;
+        case SplExpType::SPL_EXP_CHAR:
+            std::cout << "char";
+            break;
+        case SplExpType::SPL_EXP_STRUCT:
+            std::cout << "struct " << return_type->struct_name;
+            break;
+        }
+        std::cout << std::endl;
+        std::cout << "Params:" << std::endl;
+        for (auto it : params) {
+            it->second->print();
+        }
+    }
 };
 
-class FunctionSymbolTable
-    : public std::unordered_map<std::string, SplFunctionSymbol> {
+class SplScope {
   public:
-    static void install_symbol(FunctionSymbolTable &st,
-                               SplFunctionSymbol &&sym) {
-        if (st.find(sym.name) != st.end()) {
-            throw std::runtime_error("Error: function " + sym.name +
-                                     " has been defined\n");
-        }
-        st.emplace(sym.name, sym);
-    }
-    void print() {
-        std::cout << "Function Symbol Table:" << std::endl;
-        for (auto it = this->cbegin(); it != this->cend(); ++it) {
-            std::cout << it->first << ": ";
-            auto sym = it->second;
-            switch (sym.return_type->exp_type) {
-            case SplExpType::SPL_EXP_INT:
-                std::cout << "int";
-                break;
-            case SplExpType::SPL_EXP_FLOAT:
-                std::cout << "float";
-                break;
-            case SplExpType::SPL_EXP_CHAR:
-                std::cout << "char";
-                break;
-            case SplExpType::SPL_EXP_STRUCT:
-                std::cout << "struct " << it->second.return_type->struct_name;
-                break;
-            }
-            std::cout << " (";
-            for (auto param : sym.params) {
-                auto &type = param->second->type;
-                switch (type->exp_type) {
-                case SplExpType::SPL_EXP_INT:
-                    std::cout << "int";
-                    break;
-                case SplExpType::SPL_EXP_FLOAT:
-                    std::cout << "float";
-                    break;
-                case SplExpType::SPL_EXP_CHAR:
-                    std::cout << "char";
-                    break;
-                case SplExpType::SPL_EXP_STRUCT:
-                    std::cout << "struct " << type->struct_name;
-                    break;
-                }
-                if (type->is_array) {
-                    std::cout << " array";
-                    for (auto dim : type->dimensions) {
-                        std::cout << "[" << dim << "]";
-                    }
-                }
-                std::cout << ", ";
-            }
-            std::cout << ")" << std::endl;
-        }
-    }
+    SplSymbolTable symbols;
 };
 
 struct SplAstNode {

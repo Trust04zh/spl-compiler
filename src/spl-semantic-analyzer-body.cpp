@@ -9,9 +9,7 @@
 extern SplAstNode *prog;
 extern bool hasError;
 
-extern VariableSymbolTable symbols_var;
-extern StructSymbolTable symbols_struct;
-extern FunctionSymbolTable symbols_func;
+extern SplSymbolTable symbols;
 
 std::shared_ptr<SplExpExactType> latest_specifier_exact_type = nullptr;
 
@@ -20,13 +18,13 @@ void install_specifier(const std::shared_ptr<SplExpExactType> &type) {
     latest_specifier_exact_type = type;
 }
 
-std::optional<SplFunctionSymbol> latest_function = std::nullopt;
+std::shared_ptr<SplFunctionSymbol> latest_function = nullptr;
 void install_function(const std::string &name,
                       const std::shared_ptr<SplExpExactType> &return_type) {
-    if (latest_function != std::nullopt) {
+    if (latest_function != nullptr) {
         throw std::runtime_error("latest_function is not null when installing");
     }
-    latest_function.emplace(name, return_type);
+    latest_function = std::make_shared<SplFunctionSymbol>(name, return_type);
 }
 void uninstall_function() {
     // do not delete latest_function, since it is moved to symbols_func
@@ -103,7 +101,8 @@ void traverse(SplAstNode *current) {
     case SplAstNodeType::SPL_EXTDEF: {
         // EXTDEF -> Specifier SEMI
         if (current->children.size() == 2) {
-            if (current->children[0]->attr.val<SplValSpec>().type->isStruct()) {
+            if (current->children[0]->attr.val<SplValSpec>().type->exp_type ==
+                SplExpType::SPL_EXP_STRUCT) {
                 throw std::runtime_error("uncaught struct declaration");
             } else {
                 // invalid statement, "int;" for example
@@ -150,7 +149,7 @@ void traverse(SplAstNode *current) {
     case SplAstNodeType::SPL_STRUCTSPECIFIER: {
         if (current->children.size() == 5) {
             // StructSpecifier -> STRUCT ID LC DefList RC
-            StructSymbolTable::install_symbol(symbols_struct, latest_struct);
+            symbols.install_symbol(latest_struct);
             uninstall_struct();
             std::string &name =
                 current->children[1]->attr.val<SplValId>().val_id;
@@ -159,7 +158,7 @@ void traverse(SplAstNode *current) {
             // StructSpecifier -> STRUCT ID
             std::string &name =
                 current->children[1]->attr.val<SplValId>().val_id;
-            if (symbols_struct.find(name) != symbols_struct.cend()) {
+            if (symbols.find(name) != symbols.cend()) {
                 current->attr.value = std::make_unique<SplValStructSpec>(name);
             } else {
                 if (parent != nullptr && parent->parent != nullptr &&
@@ -215,33 +214,36 @@ void traverse(SplAstNode *current) {
             if (latest_struct == nullptr) {
                 // install variable symbol
 
-                bool ret =
-                    VariableSymbolTable::install_symbol(symbols_var, symbol);
-                if (!ret) {
+                bool ret = symbols.install_symbol(symbol);
+                if (ret != SplSymbolTable::SPL_SYM_INSTALL_OK) {
+                    // TODO: discriminate error types
                     report_semantic_error(3, current);
                     current->error_propagated = true;
                     return;
                 }
             } else {
                 // add struct member
-                bool ret = VariableSymbolTable::install_symbol(
-                    latest_struct->members, symbol);
-                // TODO: error report
+                bool ret = latest_struct->members.install_symbol(symbol);
+                if (ret != SplSymbolTable::SPL_SYM_INSTALL_OK) {
+                    // TODO: discriminate error types
+                    report_semantic_error(3, current);
+                    current->error_propagated = true;
+                    return;
+                }
             }
         }
         break;
         // FunDec
     }
     case SplAstNodeType::SPL_FUNDEC: {
-        FunctionSymbolTable::install_symbol(symbols_func,
-                                            *std::move(latest_function));
+        symbols.install_symbol(latest_function);
         uninstall_function();
         break;
     case SplAstNodeType::SPL_PARAMDEC:
         // ParamDec -> Specifier VarDec
         // install function param for funcition symbol
-        auto it = symbols_var.find(
-            current->children[1]->attr.val<SplValVarDec>().name);
+        auto it =
+            symbols.find(current->children[1]->attr.val<SplValVarDec>().name);
         latest_function->params.push_back(it);
         // uninstall specifier
         uninstall_specifier();
@@ -289,11 +291,13 @@ void traverse(SplAstNode *current) {
             switch (current->children[0]->attr.type) {
             case SplAstNodeType::SPL_ID: {
                 // Exp -> ID
-                auto it = symbols_var.find(
+                auto it = symbols.find(
                     current->children[0]->attr.val<SplValId>().val_id);
-                if (it != symbols_var.end()) {
+                if (it != symbols.end()) {
+                    SplVariableSymbol &symbol =
+                        static_cast<SplVariableSymbol &>(*it->second);
                     current->attr.value =
-                        std::make_unique<SplValExp>(it->second->type, true);
+                        std::make_unique<SplValExp>(symbol.var_type, true);
                 } else {
                     report_semantic_error(1, current->children[0]);
                     current->error_propagated = true;
