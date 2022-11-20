@@ -36,7 +36,8 @@ void install_function(const std::string &name,
                       const std::shared_ptr<SplExpExactType> &return_type) {
     if (latest_function != nullptr) {
         uninstall_function();
-//        throw std::runtime_error("latest_function is not null when installing");
+        //        throw std::runtime_error("latest_function is not null when
+        //        installing");
     }
     broken_function = false;
     latest_function = std::make_shared<SplFunctionSymbol>(name, return_type);
@@ -53,7 +54,8 @@ void uninstall_struct() {
 void install_struct(const std::string &name) {
     if (latest_struct != nullptr) {
         uninstall_struct();
-//        throw std::runtime_error("latest_struct is not null when installing");
+        //        throw std::runtime_error("latest_struct is not null when
+        //        installing");
     }
     broken_struct = false;
     latest_struct = std::make_shared<SplStructSymbol>(name);
@@ -137,7 +139,7 @@ void traverse(SplAstNode *current) {
                 // ExtDecList -> *VarDec* COMMA ExtDecList
                 // ParamDec -> Specifier *VarDec*
                 // Dec -> *VarDec*
-                // Dec -> *VarDec* ASSIGNOP Exp
+                // Dec -> *VarDec* ASSIGN Exp
                 if (on_struct_body) {
                     current->error_propagated = true;
                 }
@@ -205,7 +207,7 @@ void traverse(SplAstNode *current) {
                 // ExtDecList -> *VarDec* COMMA ExtDecList
                 // ParamDec -> Specifier *VarDec*
                 // Dec -> *VarDec*
-                // Dec -> *VarDec* ASSIGNOP Exp
+                // Dec -> *VarDec* ASSIGN Exp
                 if (on_struct_body) {
                     broken_struct = true;
                 }
@@ -347,7 +349,7 @@ void traverse(SplAstNode *current) {
             // ExtDecList -> *VarDec* COMMA ExtDecList
             // ParamDec -> Specifier *VarDec*
             // Dec -> *VarDec*
-            // Dec -> *VarDec* ASSIGNOP Exp
+            // Dec -> *VarDec* ASSIGN Exp
             auto &v_vardec = current->attr.val<SplValVarDec>();
             auto symbol = std::make_shared<SplVariableSymbol>(v_vardec.name,
                                                               v_vardec.type);
