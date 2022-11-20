@@ -11,47 +11,52 @@ extern bool hasError;
 
 extern SplSymbolTable symbols;
 
+// it is NOT strictly required to uninstall side effect variables when they can
+// be uninstalled, and uninstallation may be skipped due to error propagation
+
 std::shared_ptr<SplExpExactType> latest_specifier_exact_type = nullptr;
 bool broken_specifier = false;
-void install_specifier(const std::shared_ptr<SplExpExactType> &type) {
-    broken_specifier = false;
-    latest_specifier_exact_type = type;
-}
 void uninstall_specifier() {
     broken_specifier = false;
     latest_specifier_exact_type.reset();
 }
+void install_specifier(const std::shared_ptr<SplExpExactType> &type) {
+    broken_specifier = false;
+    latest_specifier_exact_type = type;
+}
 
 std::shared_ptr<SplFunctionSymbol> latest_function = nullptr;
 bool broken_function = false;
-void install_function(const std::string &name,
-                      const std::shared_ptr<SplExpExactType> &return_type) {
-    if (latest_function != nullptr) {
-        throw std::runtime_error("latest_function is not null when installing");
-    }
-    broken_function = false;
-    latest_function = std::make_shared<SplFunctionSymbol>(name, return_type);
-}
 void uninstall_function() {
     // do not delete latest_function, since it is moved to symbols_func
     broken_function = false;
     latest_function.reset();
 }
+void install_function(const std::string &name,
+                      const std::shared_ptr<SplExpExactType> &return_type) {
+    if (latest_function != nullptr) {
+        uninstall_function();
+//        throw std::runtime_error("latest_function is not null when installing");
+    }
+    broken_function = false;
+    latest_function = std::make_shared<SplFunctionSymbol>(name, return_type);
+}
 
 std::shared_ptr<SplStructSymbol> latest_struct = nullptr;
 bool broken_struct = false;
 bool on_struct_body = false;
-void install_struct(const std::string &name) {
-    if (latest_struct != nullptr) {
-        throw std::runtime_error("latest_struct is not null when installing");
-    }
-    broken_struct = false;
-    latest_struct = std::make_shared<SplStructSymbol>(name);
-}
 void uninstall_struct() {
     // do not delete latest_struct, since it is moved to symbols_struct
     broken_struct = false;
     latest_struct.reset();
+}
+void install_struct(const std::string &name) {
+    if (latest_struct != nullptr) {
+        uninstall_struct();
+//        throw std::runtime_error("latest_struct is not null when installing");
+    }
+    broken_struct = false;
+    latest_struct = std::make_shared<SplStructSymbol>(name);
 }
 
 // postorder traverse the AST and do semantic analysis
@@ -112,6 +117,14 @@ void traverse(SplAstNode *current) {
             current->error_propagated = true;
             break;
         }
+        case SplAstNodeType::SPL_STMT: {
+            if (current->children.size() == 3 &&
+                current->children[0]->attr.type == SplAstNodeType::SPL_RETURN) {
+                // Stmt -> RETURN Exp SEMI
+                current->error_propagated = true;
+            }
+            break;
+        }
         }
     }
     // latest_struct
@@ -168,6 +181,12 @@ void traverse(SplAstNode *current) {
             broken_function = true;
             break;
         }
+        case SplAstNodeType::SPL_FUNDEC: {
+            // FunDec -> ID LP VarList RP
+            // FunDec -> ID LP RP
+            broken_function = true;
+            break;
+        }
         }
         // latest_struct
         switch (current->attr.type) {
@@ -200,7 +219,7 @@ void traverse(SplAstNode *current) {
     // bottom-up attribute inference
     switch (current->attr.type) {
     case SplAstNodeType::SPL_EXTDEF: {
-        // EXTDEF -> Specifier SEMI
+        // ExtDef -> Specifier SEMI
         if (current->children.size() == 2) {
             if (current->children[0]->attr.val<SplValSpec>().type->exp_type ==
                 SplExpType::SPL_EXP_STRUCT) {
@@ -211,6 +230,11 @@ void traverse(SplAstNode *current) {
                 current->error_propagated = true;
                 return;
             }
+        } else if (current->children.size() == 3 &&
+                   current->children[1]->attr.type ==
+                       SplAstNodeType::SPL_FUNDEC) {
+            // ExtDef -> Specifier FunDec CompSt
+            uninstall_function();
         }
         break;
     }
@@ -250,7 +274,19 @@ void traverse(SplAstNode *current) {
     case SplAstNodeType::SPL_STRUCTSPECIFIER: {
         if (current->children.size() == 5) {
             // StructSpecifier -> STRUCT ID LC DefList RC
-            symbols.install_symbol(latest_struct);
+            int ret = symbols.install_symbol(latest_struct);
+            if (ret != SplSymbolTable::SPL_SYM_INSTALL_OK) {
+                if (ret == SplSymbolTable::SPL_SYM_INSTALL_REDEF_FUNC) {
+                    report_semantic_error(15, current);
+                } else if (ret ==
+                           SplSymbolTable::SPL_SYM_INSTALL_TYPE_CONFLICT) {
+                    report_semantic_error(34, current);
+                } else {
+                    throw std::runtime_error("bad installation");
+                }
+                current->error_propagated = true;
+                return;
+            }
             uninstall_struct();
             std::string &name =
                 current->children[1]->attr.val<SplValId>().val_id;
@@ -317,19 +353,31 @@ void traverse(SplAstNode *current) {
                                                               v_vardec.type);
             if (!on_struct_body) {
                 // install variable symbol
-                bool ret = symbols.install_symbol(symbol);
+                int ret = symbols.install_symbol(symbol);
                 if (ret != SplSymbolTable::SPL_SYM_INSTALL_OK) {
-                    // TODO: discriminate error types
-                    report_semantic_error(3, current);
+                    if (ret == SplSymbolTable::SPL_SYM_INSTALL_REDEF_FUNC) {
+                        report_semantic_error(3, current);
+                    } else if (ret ==
+                               SplSymbolTable::SPL_SYM_INSTALL_TYPE_CONFLICT) {
+                        report_semantic_error(34, current);
+                    } else {
+                        throw std::runtime_error("bad installation");
+                    }
                     current->error_propagated = true;
                     return;
                 }
             } else {
                 // add struct member
-                bool ret = latest_struct->members.install_symbol(symbol);
+                int ret = latest_struct->members.install_symbol(symbol);
                 if (ret != SplSymbolTable::SPL_SYM_INSTALL_OK) {
-                    // TODO: discriminate error types
-                    report_semantic_error(3, current);
+                    if (ret == SplSymbolTable::SPL_SYM_INSTALL_REDEF_FUNC) {
+                        report_semantic_error(3, current);
+                    } else if (ret ==
+                               SplSymbolTable::SPL_SYM_INSTALL_TYPE_CONFLICT) {
+                        report_semantic_error(34, current);
+                    } else {
+                        throw std::runtime_error("bad installation");
+                    }
                     current->error_propagated = true;
                     broken_struct = true;
                     return;
@@ -342,10 +390,23 @@ void traverse(SplAstNode *current) {
     case SplAstNodeType::SPL_FUNDEC: {
         // FunDec -> ID LP VarList RP
         // FunDec -> ID LP RP
-        symbols.install_symbol(latest_function);
-        uninstall_function();
+        int ret = symbols.install_symbol(latest_function);
+        if (ret != SplSymbolTable::SPL_SYM_INSTALL_OK) {
+            if (ret == SplSymbolTable::SPL_SYM_INSTALL_REDEF_FUNC) {
+                report_semantic_error(4, current);
+            } else if (ret == SplSymbolTable::SPL_SYM_INSTALL_TYPE_CONFLICT) {
+                report_semantic_error(34, current);
+            } else {
+                throw std::runtime_error("bad installation");
+            }
+            current->error_propagated = true;
+            broken_function = true;
+            return;
+        }
+        // uninstall_function();
         break;
-    case SplAstNodeType::SPL_PARAMDEC:
+    }
+    case SplAstNodeType::SPL_PARAMDEC: {
         // ParamDec -> Specifier VarDec
         // install function param for funcition symbol
         auto it =
@@ -353,6 +414,19 @@ void traverse(SplAstNode *current) {
         latest_function->params.push_back(it);
         // uninstall specifier
         uninstall_specifier();
+        break;
+    }
+    case SplAstNodeType::SPL_STMT: {
+        if (current->children.size() == 3 &&
+            current->children[0]->attr.type == SplAstNodeType::SPL_RETURN) {
+            // Stmt -> RETURN Exp SEMI
+            auto &exp_type = current->children[1]->attr.val<SplValExp>().type;
+            if (exp_type->exp_type != latest_function->return_type->exp_type) {
+                report_semantic_error(8, current);
+                current->error_propagated = true;
+                return;
+            }
+        }
         break;
     }
     case SplAstNodeType::SPL_DEC: {
@@ -363,6 +437,7 @@ void traverse(SplAstNode *current) {
             auto &v_vardec = current->children[0]->attr.val<SplValVarDec>();
             auto &v_exp = current->children[2]->attr.val<SplValExp>();
             if (v_vardec.type->exp_type != v_exp.type->exp_type) {
+                // gcc does not cancel the variable symbol
                 report_semantic_error(5, current);
                 current->error_propagated = true;
                 return;
@@ -383,7 +458,7 @@ void traverse(SplAstNode *current) {
                     current->attr.value =
                         std::make_unique<SplValExp>(symbol.var_type, true);
                 } else {
-                    report_semantic_error(1, current->children[0]);
+                    report_semantic_error(1, current);
                     current->error_propagated = true;
                     return;
                 }
@@ -503,21 +578,142 @@ void traverse(SplAstNode *current) {
             }
             case SplAstNodeType::SPL_DOT: {
                 // Exp -> Exp DOT ID
-                // TODO: refer to struct member
+                // access struct member
+                auto &v_struct = current->children[0]->attr.val<SplValExp>();
+                auto &v_id = current->children[2]->attr.val<SplValId>();
+                if (v_struct.type->exp_type != SPL_EXP_STRUCT) {
+                    report_semantic_error(13, current);
+                    current->error_propagated = true;
+                    return;
+                }
+                auto it_struct = symbols.find(v_struct.type->struct_name);
+                if (it_struct == symbols.end()) {
+                    throw std::runtime_error("instance of undefined structure");
+                }
+                auto &sym_struct =
+                    static_cast<SplStructSymbol &>(*it_struct->second);
+                auto it_member = sym_struct.members.find(v_id.val_id);
+                if (it_member == sym_struct.members.end()) {
+                    report_semantic_error(14, current);
+                    current->error_propagated = true;
+                    return;
+                }
+                auto &member =
+                    static_cast<SplVariableSymbol &>(*it_member->second);
+                current->attr.value =
+                    std::make_unique<SplValExp>(member.var_type, true);
+                break;
+            }
+            case SplAstNodeType::SPL_LP: {
+                // Exp -> ID LP RP
+                auto it = symbols.find(
+                    current->children[0]->attr.val<SplValId>().val_id);
+                if (it == symbols.end()) {
+                    report_semantic_error(2, current);
+                    current->error_propagated = true;
+                    return;
+                }
+                if (it->second->sym_type != SplSymbolType::SPL_SYM_FUNC) {
+                    report_semantic_error(11, current);
+                    current->error_propagated = true;
+                    return;
+                }
+                SplFunctionSymbol &symbol =
+                    static_cast<SplFunctionSymbol &>(*it->second);
+                if (symbol.params.size() != 0) {
+                    report_semantic_error(9, current);
+                    current->error_propagated = true;
+                    return;
+                }
+                current->attr.value =
+                    std::make_unique<SplValExp>(symbol.return_type, false);
+                break;
             }
             }
-        } else if (current->children[0]->attr.type == SplAstNodeType::SPL_ID &&
-                   current->children[1]->attr.type == SplAstNodeType::SPL_LP) {
-            // Exp -> ID LP Args RP
-            // Exp -> ID LP RP
-            // TODO: function call
-        } else if (current->children[0]->attr.type == SplAstNodeType::SPL_EXP &&
-                   current->children[1]->attr.type == SplAstNodeType::SPL_LB) {
-            // Exp -> Exp LB Exp RB
-            // TODO: array access
-        } else {
-            assert(false);
+        } else if (current->children.size() == 4) {
+            switch (current->children[1]->attr.type) {
+            case SplAstNodeType::SPL_LP: {
+                // Exp -> ID LP Args RP
+                auto it = symbols.find(
+                    current->children[0]->attr.val<SplValId>().val_id);
+                if (it == symbols.end()) {
+                    report_semantic_error(2, current);
+                    current->error_propagated = true;
+                    return;
+                }
+                if (it->second->sym_type != SplSymbolType::SPL_SYM_FUNC) {
+                    report_semantic_error(11, current);
+                    current->error_propagated = true;
+                    return;
+                }
+                SplFunctionSymbol &symbol =
+                    static_cast<SplFunctionSymbol &>(*it->second);
+                auto &v_args = current->children[2]->attr.val<SplValArgs>();
+                auto &arg_types = v_args.arg_types;
+                if (arg_types.size() != symbol.params.size()) {
+                    report_semantic_error(9, current);
+                    current->error_propagated = true;
+                    return;
+                }
+                for (size_t i = 0; i < arg_types.size(); ++i) {
+                    if (*arg_types[arg_types.size() - 1 - i] !=
+                        *static_cast<SplVariableSymbol &>(
+                             *symbol.params[i]->second)
+                             .var_type) {
+                        report_semantic_error(9, current);
+                        current->error_propagated = true;
+                        return;
+                    }
+                }
+                current->attr.value =
+                    std::make_unique<SplValExp>(symbol.return_type, false);
+                break;
+            }
+            case SplAstNodeType::SPL_LB: {
+                // Exp -> Exp LB Exp RB
+                // array access
+                auto &v_exp_arr = current->children[0]->attr.val<SplValExp>();
+                auto &v_exp_idx = current->children[2]->attr.val<SplValExp>();
+
+                if (!v_exp_arr.type->is_array()) {
+                    report_semantic_error(10, current);
+                    current->error_propagated = true;
+                    return;
+                }
+                if (v_exp_idx.type->exp_type != SPL_EXP_INT) {
+                    report_semantic_error(12, current);
+                    current->error_propagated = true;
+                    return;
+                }
+                if (!v_exp_arr.is_lvalue) {
+                    throw std::runtime_error("array access on rvalue");
+                }
+                current->attr.value = std::make_unique<SplValExp>(
+                    v_exp_arr.type, v_exp_arr.is_lvalue);
+                v_exp_arr.type->step_array_idx();
+                break;
+            }
+            }
         }
+        break;
+    }
+    case SplAstNodeType::SPL_ARGS: {
+        if (current->children.size() == 3) {
+            // Args -> Exp COMMA Args
+            auto &v_exp = current->children[0]->attr.val<SplValExp>();
+            auto &v_args = current->children[2]->attr.val<SplValArgs>();
+            current->attr.value = std::make_unique<SplValArgs>(
+                std::vector<std::shared_ptr<SplExpExactType>>(
+                    v_args.arg_types));
+            current->attr.val<SplValArgs>().arg_types.push_back(v_exp.type);
+        } else {
+            // Args -> Exp
+            auto &v_exp = current->children[0]->attr.val<SplValExp>();
+            current->attr.value = std::make_unique<SplValArgs>(
+                std::vector<std::shared_ptr<SplExpExactType>>());
+            current->attr.val<SplValArgs>().arg_types.push_back(v_exp.type);
+        }
+        break;
     }
     case SplAstNodeType::SPL_ID: {
         if (parent != nullptr &&

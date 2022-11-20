@@ -92,6 +92,13 @@ struct SplValStructSpec : public SplVal {
         : SplVal{"StructSpecifier"}, struct_name(name) {}
 };
 
+struct SplValArgs : public SplVal {
+    std::vector<std::shared_ptr<SplExpExactType>>
+        arg_types; // arguments are stored by reverse order
+    SplValArgs(const std::vector<std::shared_ptr<SplExpExactType>> &arg_types)
+        : SplVal{"Args"}, arg_types(arg_types) {}
+};
+
 enum SplAstNodeType {
     SPL_DUMMY, // dummy node
     SPL_EMPTY, // empty node (in case of empty production in syntax analysis)
@@ -185,7 +192,7 @@ enum SplExpType {
 struct SplExpExactType {
     const SplExpType exp_type;
     const std::string struct_name; // if exp_type == SplExpType::SPL_EXP_STRUCT
-    const int array_idx{-1};
+    int array_idx{-1};
     const std::shared_ptr<std::vector<int>> dims; // if is_array()
 
     explicit SplExpExactType(SplExpType exp_type) : exp_type(exp_type) {}
@@ -196,12 +203,21 @@ struct SplExpExactType {
         : exp_type(exp_type), dims(dims), array_idx(array_idx) {}
     //   SplExpExactType(const SplExpExactType &) = default;
     bool is_array() const { return array_idx != -1; }
+    void step_array_idx() {
+        ++array_idx;
+        if (array_idx == dims->size()) {
+            array_idx = -1;
+        }
+    }
     bool operator==(const SplExpExactType &rhs) const {
         return !(exp_type != rhs.exp_type ||
                  (exp_type == SplExpType::SPL_EXP_STRUCT &&
                   struct_name != rhs.struct_name) ||
                  array_idx != rhs.array_idx ||
                  (is_array() && dims->size() != rhs.dims->size()));
+    }
+    bool operator!=(const SplExpExactType &rhs) const {
+        return !(*this == rhs);
     }
 };
 

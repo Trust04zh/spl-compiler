@@ -101,6 +101,11 @@ void report_semantic_error(int type_id, const SplAstNode *const node) {
     case 33:
         printf("Error type 33 at Line %d: undefined structure type\n", lineno);
         break;
+    case 34:
+        printf("Error type 34 at Line %d: symbol redeclared as different kind "
+               "of entity\n",
+               lineno);
+        break;
     /* type 4x: extra error types */
     case 41:
         break;

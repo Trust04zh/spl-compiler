@@ -57,26 +57,32 @@ apply `splc` parser on all `.spl` files in specified directory
 - [] type system & type propagation in expression
 - [] error report
   - [x] 1
-  - [] 2
+  - [x] 2
   - [x] 3
-  - [] 4
+  - [x] 4
   - [x] 5
   - [x] 6
   - [x] 7
-  - [] 8
-  - [] 9
-  - [] 10
-  - [] 11
-  - [] 12
-  - [] 13
-  - [] 14
-  - [] 15
+  - [x] 8
+  - [x] 9
+  - [x] 10
+  - [x] 11
+  - [x] 12
+  - [x] 13
+  - [x] 14
+  - [x] 15
   - [x] 21
-- [] symbol table
+  - [x] 31
+  - [x] 32
+  - [x] 33
+  - [x] 34
+  - [] 41
+- [x] symbol table
   - [x] variable table
-  - [] struct table
+  - [x] struct table
   - [x] function table
-- [] global scoping
-  - [] bonus: local scoping
+- [x] global scoping
+- [] bonus: local scoping
 - [] bonus: function declaration
 - [] bonus: function overload
+- [] bonus: type compatibility
