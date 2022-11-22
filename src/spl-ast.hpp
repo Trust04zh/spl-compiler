@@ -201,6 +201,11 @@ struct SplExpExactType {
     SplExpExactType(SplExpType exp_type, std::shared_ptr<std::vector<int>> dims,
                     const int array_idx = 0)
         : exp_type(exp_type), dims(dims), array_idx(array_idx) {}
+    SplExpExactType(SplExpType exp_type, const std::string &struct_name,
+                    std::shared_ptr<std::vector<int>> dims,
+                    const int array_idx = 0)
+        : exp_type(exp_type), struct_name(struct_name), dims(dims),
+          array_idx(array_idx) {}
     //   SplExpExactType(const SplExpExactType &) = default;
     bool is_array() const { return array_idx != -1; }
     void step_array_idx() {

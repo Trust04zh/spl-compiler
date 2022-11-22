@@ -225,7 +225,8 @@ void traverse(SplAstNode *current) {
         if (current->children.size() == 2) {
             if (current->children[0]->attr.val<SplValSpec>().type->exp_type ==
                 SplExpType::SPL_EXP_STRUCT) {
-                throw std::runtime_error("uncaught struct declaration");
+                // FIXME: remove this?
+                // throw std::runtime_error("uncaught struct declaration");
             } else {
                 // invalid statement, "int;" for example
                 report_semantic_error(31, current);
@@ -278,7 +279,7 @@ void traverse(SplAstNode *current) {
             // StructSpecifier -> STRUCT ID LC DefList RC
             int ret = symbols.install_symbol(latest_struct);
             if (ret != SplSymbolTable::SPL_SYM_INSTALL_OK) {
-                if (ret == SplSymbolTable::SPL_SYM_INSTALL_REDEF_FUNC) {
+                if (ret == SplSymbolTable::SPL_SYM_INSTALL_REDEF_STRUCT) {
                     report_semantic_error(15, current);
                 } else if (ret ==
                            SplSymbolTable::SPL_SYM_INSTALL_TYPE_CONFLICT) {
@@ -334,12 +335,20 @@ void traverse(SplAstNode *current) {
             } else {
                 dims = std::make_shared<std::vector<int>>();
             }
+            // this is the only place whera array extend size
             dims->push_back(std::get<int>(
                 current->children[2]->attr.val<SplValValue>().value));
-            current->attr.value = std::make_unique<SplValVarDec>(
-                value_prev.name,
-                std::make_shared<SplExpExactType>(value_prev.type->exp_type,
-                                                  std::move(dims)));
+            if (value_prev.type->exp_type == SPL_EXP_STRUCT) {
+                current->attr.value = std::make_unique<SplValVarDec>(
+                    value_prev.name,
+                    std::make_shared<SplExpExactType>(
+                        SPL_EXP_STRUCT, value_prev.type->struct_name, dims));
+            } else {
+                current->attr.value = std::make_unique<SplValVarDec>(
+                    value_prev.name,
+                    std::make_shared<SplExpExactType>(value_prev.type->exp_type,
+                                                      std::move(dims)));
+            }
         } else {
             assert(false);
         }
@@ -357,7 +366,7 @@ void traverse(SplAstNode *current) {
                 // install variable symbol
                 int ret = symbols.install_symbol(symbol);
                 if (ret != SplSymbolTable::SPL_SYM_INSTALL_OK) {
-                    if (ret == SplSymbolTable::SPL_SYM_INSTALL_REDEF_FUNC) {
+                    if (ret == SplSymbolTable::SPL_SYM_INSTALL_REDEF_VAR) {
                         report_semantic_error(3, current);
                     } else if (ret ==
                                SplSymbolTable::SPL_SYM_INSTALL_TYPE_CONFLICT) {
@@ -372,7 +381,7 @@ void traverse(SplAstNode *current) {
                 // add struct member
                 int ret = latest_struct->members.install_symbol(symbol);
                 if (ret != SplSymbolTable::SPL_SYM_INSTALL_OK) {
-                    if (ret == SplSymbolTable::SPL_SYM_INSTALL_REDEF_FUNC) {
+                    if (ret == SplSymbolTable::SPL_SYM_INSTALL_REDEF_VAR) {
                         report_semantic_error(3, current);
                     } else if (ret ==
                                SplSymbolTable::SPL_SYM_INSTALL_TYPE_CONFLICT) {
