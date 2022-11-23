@@ -237,8 +237,11 @@ class SplSymbol {
     virtual void print() = 0;
 };
 
-class SplSymbolTable
-    : public std::unordered_map<std::string, std::shared_ptr<SplSymbol>> {
+class SplSymbolTable {
+  private:
+    std::vector<std::unordered_map<std::string, std::shared_ptr<SplSymbol>>>
+        tables{1};
+
   public:
     enum SplSymbolInstallResult {
         SPL_SYM_INSTALL_OK = 0,
@@ -247,8 +250,10 @@ class SplSymbolTable
         SPL_SYM_INSTALL_REDEF_STRUCT,
         SPL_SYM_INSTALL_REDEF_VAR,
     };
-    static int install_symbol(SplSymbolTable &st,
-                              std::shared_ptr<SplSymbol> sym) {
+    void forward() { tables.emplace_back(); }
+    void back() { tables.pop_back(); }
+    int install_symbol(std::shared_ptr<SplSymbol> sym) {
+        auto &st = tables.back();
         auto it = st.find(sym->name);
         if (it != st.end()) {
             if (it->second->sym_type == sym->sym_type) {
@@ -267,13 +272,23 @@ class SplSymbolTable
         st.emplace(sym->name, sym);
         return SPL_SYM_INSTALL_OK;
     }
-    int install_symbol(std::shared_ptr<SplSymbol> sym) {
-        return install_symbol(*this, sym);
+    std::optional<std::shared_ptr<SplSymbol>> lookup(const std::string &name) {
+        for (auto it = tables.crbegin(); it != tables.crend(); it++) {
+            auto &table = *it;
+            auto table_it = table.find(name);
+            if (table_it != table.end()) {
+                return (*table_it).second;
+            }
+        }
+        return std::nullopt;
     }
     void print() {
         std::cout << "Symbol Table:" << std::endl;
-        for (auto it = this->cbegin(); it != this->cend(); ++it) {
-            it->second->print();
+        for (int i = 0; i < tables.size(); i++) {
+            std::cout << "Layer " << i << std::endl;
+            for (auto it = tables[i].cbegin(); it != tables[i].cend(); ++it) {
+                it->second->print();
+            }
         }
     }
 };
@@ -325,7 +340,7 @@ class SplFunctionSymbol : public SplSymbol {
   public:
     // notice that spl does not support array return type
     const std::shared_ptr<SplExpExactType> return_type;
-    std::vector<SplSymbolTable::const_iterator> params;
+    std::vector<std::shared_ptr<SplSymbol>> params;
 
     SplFunctionSymbol(const std::string &name,
                       const std::shared_ptr<SplExpExactType> return_type)
@@ -349,8 +364,8 @@ class SplFunctionSymbol : public SplSymbol {
         }
         std::cout << std::endl;
         std::cout << "Params:" << std::endl;
-        for (auto it : params) {
-            it->second->print();
+        for (auto &p : params) {
+            p->print();
         }
     }
 };
@@ -487,26 +502,29 @@ struct SplAstNode {
             printf("%s", name);
             break;
         case SPL_INT:
-            assert(attr.value.has_value());
-            printf("%s: %d", name, attr.value->val_int.value);
+            assert(attr.value != nullptr);
+            printf("%s: %d", name,
+                   std::get<int>(attr.val<SplValValue>().value));
             break;
         case SPL_FLOAT:
-            assert(attr.value.has_value());
+            assert(attr.value != nullptr);
             // printf(": %f", attr.value->val_float.value);
-            printf("%s: %s", name, attr.value->val_float.raw);
+            printf("%s: %f", name,
+                   std::get<float>(attr.val<SplValValue>().value));
             break;
         case SPL_CHAR:
-            assert(attr.value.has_value());
+            assert(attr.value != nullptr);
             // printf(": %c", attr.value->val_char.value);
-            printf("%s: %s", name, attr.value->val_char.raw);
+            printf("%s: %c", name,
+                   std::get<char>(attr.val<SplValValue>().value));
             break;
         case SPL_ID:
-            assert(attr.value.has_value());
-            printf("%s: %s", name, attr.value->val_id);
+            assert(attr.value != nullptr);
+            printf("%s: %s", name, attr.val<SplValId>().val_id.c_str());
             break;
         case SPL_TYPE:
-            assert(attr.value.has_value());
-            printf("%s: %s", name, attr.value->val_type);
+            assert(attr.value != nullptr);
+            printf("%s: %s", name, attr.val<SplValType>().val_type.c_str());
             break;
         default:
             assert(false);

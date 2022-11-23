@@ -205,7 +205,7 @@ rc              "}"
             value = atoi(yytext);
         }
         #if !defined(SPL_LEXER_STANDALONE) && defined(SPL_PARSER_STANDALONE)
-            yylval = new SplAstNode("INT", {SPL_INT, std::make_unique<SplValValue>(strdup(yytext), value)}, SplLoc(&yylloc));
+            yylval = new SplAstNode("INT", {SPL_INT, std::make_unique<SplValValue>(value, strdup(yytext))}, SplLoc(&yylloc));
         #else
             yylval = new SplAstNode("INT", {SPL_INT, std::make_unique<SplValValue>(value)}, SplLoc(&yylloc));
         #endif
@@ -216,7 +216,7 @@ rc              "}"
     SPL_LEXER_DEBUG_PRINT("line %d\t col %d\t: float      (len %d)\t : \"%s\"\n", yylineno, yycolumn - yyleng, yyleng, yytext);
     #if !defined(SPL_LEXER_STANDALONE)
         #if !defined(SPL_LEXER_STANDALONE) && defined(SPL_PARSER_STANDALONE)
-            yylval = new SplAstNode("FLOAT", {SPL_FLOAT, std::make_unique<SplValValue>(strdup(yytext), (float)atof(yytext))}, SplLoc(&yylloc));
+            yylval = new SplAstNode("FLOAT", {SPL_FLOAT, std::make_unique<SplValValue>((float)atof(yytext), strdup(yytext))}, SplLoc(&yylloc));
         #else
             yylval = new SplAstNode("FLOAT", {SPL_FLOAT, std::make_unique<SplValValue>((float)atof(yytext))}, SplLoc(&yylloc));
         #endif
@@ -235,7 +235,7 @@ rc              "}"
             value = yytext[1];
         }
         #if !defined(SPL_LEXER_STANDALONE) && defined(SPL_PARSER_STANDALONE)
-            yylval = new SplAstNode("CHAR", {SPL_CHAR, std::make_unique<SplValValue>(strdup(yytext), value)}, SplLoc(&yylloc));
+            yylval = new SplAstNode("CHAR", {SPL_CHAR, std::make_unique<SplValValue>(value, strdup(yytext))}, SplLoc(&yylloc));
         #else
             yylval = new SplAstNode("CHAR", {SPL_CHAR, std::make_unique<SplValValue>(value)}, SplLoc(&yylloc));
         #endif

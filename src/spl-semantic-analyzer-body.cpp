@@ -298,7 +298,13 @@ void traverse(SplAstNode *current) {
             // StructSpecifier -> STRUCT ID
             std::string &name =
                 current->children[1]->attr.val<SplValId>().val_id;
-            if (symbols.find(name) != symbols.cend()) {
+            auto id = symbols.lookup(name);
+            if (id.has_value()) {
+                if (id.value()->sym_type != SPL_SYM_STRUCT) {
+                    report_semantic_error(33, current);
+                    current->error_propagated = true;
+                    return;
+                }
                 current->attr.value = std::make_unique<SplValStructSpec>(name);
             } else {
                 if (parent != nullptr && parent->parent != nullptr &&
@@ -421,8 +427,9 @@ void traverse(SplAstNode *current) {
         // ParamDec -> Specifier VarDec
         // install function param for funcition symbol
         auto it =
-            symbols.find(current->children[1]->attr.val<SplValVarDec>().name);
-        latest_function->params.push_back(it);
+            symbols.lookup(current->children[1]->attr.val<SplValVarDec>().name);
+        std::cout << it.value()->sym_type << std::endl;
+        latest_function->params.push_back(it.value());
         // uninstall specifier
         uninstall_specifier();
         break;
@@ -461,11 +468,11 @@ void traverse(SplAstNode *current) {
             switch (current->children[0]->attr.type) {
             case SplAstNodeType::SPL_ID: {
                 // Exp -> ID
-                auto it = symbols.find(
+                auto it = symbols.lookup(
                     current->children[0]->attr.val<SplValId>().val_id);
-                if (it != symbols.end()) {
+                if (it.has_value()) {
                     SplVariableSymbol &symbol =
-                        static_cast<SplVariableSymbol &>(*it->second);
+                        static_cast<SplVariableSymbol &>(*(it.value()));
                     current->attr.value =
                         std::make_unique<SplValExp>(symbol.var_type, true);
                 } else {
@@ -597,40 +604,40 @@ void traverse(SplAstNode *current) {
                     current->error_propagated = true;
                     return;
                 }
-                auto it_struct = symbols.find(v_struct.type->struct_name);
-                if (it_struct == symbols.end()) {
+                auto it_struct = symbols.lookup(v_struct.type->struct_name);
+                if (!it_struct.has_value()) {
                     throw std::runtime_error("instance of undefined structure");
                 }
                 auto &sym_struct =
-                    static_cast<SplStructSymbol &>(*it_struct->second);
-                auto it_member = sym_struct.members.find(v_id.val_id);
-                if (it_member == sym_struct.members.end()) {
+                    static_cast<SplStructSymbol &>(**it_struct);
+                auto it_member = sym_struct.members.lookup(v_id.val_id);
+                if (!it_member.has_value()) {
                     report_semantic_error(14, current);
                     current->error_propagated = true;
                     return;
                 }
                 auto &member =
-                    static_cast<SplVariableSymbol &>(*it_member->second);
+                    static_cast<SplVariableSymbol &>(**it_member);
                 current->attr.value =
                     std::make_unique<SplValExp>(member.var_type, true);
                 break;
             }
             case SplAstNodeType::SPL_LP: {
                 // Exp -> ID LP RP
-                auto it = symbols.find(
+                auto it = symbols.lookup(
                     current->children[0]->attr.val<SplValId>().val_id);
-                if (it == symbols.end()) {
+                if (!it.has_value()) {
                     report_semantic_error(2, current);
                     current->error_propagated = true;
                     return;
                 }
-                if (it->second->sym_type != SplSymbolType::SPL_SYM_FUNC) {
+                if (it.value()->sym_type != SplSymbolType::SPL_SYM_FUNC) {
                     report_semantic_error(11, current);
                     current->error_propagated = true;
                     return;
                 }
                 SplFunctionSymbol &symbol =
-                    static_cast<SplFunctionSymbol &>(*it->second);
+                    static_cast<SplFunctionSymbol &>(**it);
                 if (symbol.params.size() != 0) {
                     report_semantic_error(9, current);
                     current->error_propagated = true;
@@ -645,20 +652,20 @@ void traverse(SplAstNode *current) {
             switch (current->children[1]->attr.type) {
             case SplAstNodeType::SPL_LP: {
                 // Exp -> ID LP Args RP
-                auto it = symbols.find(
+                auto it = symbols.lookup(
                     current->children[0]->attr.val<SplValId>().val_id);
-                if (it == symbols.end()) {
+                if (!it.has_value()) {
                     report_semantic_error(2, current);
                     current->error_propagated = true;
                     return;
                 }
-                if (it->second->sym_type != SplSymbolType::SPL_SYM_FUNC) {
+                if (it.value()->sym_type != SplSymbolType::SPL_SYM_FUNC) {
                     report_semantic_error(11, current);
                     current->error_propagated = true;
                     return;
                 }
                 SplFunctionSymbol &symbol =
-                    static_cast<SplFunctionSymbol &>(*it->second);
+                    static_cast<SplFunctionSymbol &>(**it);
                 auto &v_args = current->children[2]->attr.val<SplValArgs>();
                 auto &arg_types = v_args.arg_types;
                 if (arg_types.size() != symbol.params.size()) {
@@ -669,7 +676,7 @@ void traverse(SplAstNode *current) {
                 for (size_t i = 0; i < arg_types.size(); ++i) {
                     if (*arg_types[arg_types.size() - 1 - i] !=
                         *static_cast<SplVariableSymbol &>(
-                             *symbol.params[i]->second)
+                             *symbol.params[i])
                              .var_type) {
                         report_semantic_error(9, current);
                         current->error_propagated = true;
@@ -753,6 +760,8 @@ void traverse(SplAstNode *current) {
             parent->attr.type == SplAstNodeType::SPL_STRUCTSPECIFIER) {
             // StructSpecifier -> STRUCT ID *LC* DefList RC
             on_struct_body = true;
+        } else {
+            symbols.forward();
         }
         break;
     }
@@ -761,6 +770,8 @@ void traverse(SplAstNode *current) {
             parent->attr.type == SplAstNodeType::SPL_STRUCTSPECIFIER) {
             // StructSpecifier -> STRUCT ID *LC* DefList RC
             on_struct_body = false;
+        } else {
+            symbols.back();
         }
         break;
     }
