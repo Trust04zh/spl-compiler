@@ -206,7 +206,7 @@ struct SplExpExactType {
                     const int array_idx = 0)
         : exp_type(exp_type), struct_name(struct_name), dims(dims),
           array_idx(array_idx) {}
-    //   SplExpExactType(const SplExpExactType &) = default;
+    SplExpExactType(const SplExpExactType &) = default;
     bool is_array() const { return array_idx != -1; }
     void step_array_idx() {
         ++array_idx;

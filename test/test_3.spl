@@ -1,5 +1,3 @@
-// modified from https://www.luogu.com.cn/problem/solution/P1002
-
 int fx[9];
 int fy[9];
 
@@ -18,10 +16,15 @@ int main(){
         i = i + 1;
         s[mx + fx[i]][my + fy[i]] = 1;
     }
-    for(i = 2; i <= bx; i = i + 1){
-        for(j = 2; j <= by; j = j + 1){
-            if(s[i][j]) continue;
-            f[i][j] = f[i - 1][j] + f[i][j - 1];
+    i= 2;
+    while (i <= bx) {
+        i = i + 1;
+        j = 2;
+        while (j < by) {
+            j = j + 1;
+            if(!s[i][j]) {
+                f[i][j][i] = f[i - 1][j] + f[i][j - 1];
+            }
         }
     }
     return 0;

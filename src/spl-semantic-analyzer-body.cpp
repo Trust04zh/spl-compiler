@@ -679,9 +679,6 @@ void traverse(SplAstNode *current) {
                 // array access
                 auto &v_exp_arr = current->children[0]->attr.val<SplValExp>();
                 auto &v_exp_idx = current->children[2]->attr.val<SplValExp>();
-
-                std::cout << v_exp_arr.type->exp_type
-                          << std::endl; // FIXME: debug
                 if (!v_exp_arr.type->is_array()) {
                     report_semantic_error(
                         10, current, std::to_string(v_exp_arr.type->exp_type));
@@ -696,9 +693,11 @@ void traverse(SplAstNode *current) {
                 if (!v_exp_arr.is_lvalue) {
                     throw std::runtime_error("array access on rvalue");
                 }
-                current->attr.value = std::make_unique<SplValExp>(
-                    v_exp_arr.type, v_exp_arr.is_lvalue);
-                v_exp_arr.type->step_array_idx();
+                std::shared_ptr<SplExpExactType> type =
+                    std::make_shared<SplExpExactType>(*v_exp_arr.type);
+                current->attr.value =
+                    std::make_unique<SplValExp>(type, v_exp_arr.is_lvalue);
+                current->attr.val<SplValExp>().type->step_array_idx();
                 break;
             }
             }

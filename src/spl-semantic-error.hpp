@@ -55,7 +55,7 @@ void report_semantic_error(int type_id, const SplAstNode *const node,
         break;
     case 10:
         printf("Error type 10 at Line %d: applying indexing operator ([...]) "
-               "on non-array type variable",
+               "on non-array type variable\n",
                lineno);
         break;
     case 11:
