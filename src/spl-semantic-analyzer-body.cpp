@@ -234,7 +234,10 @@ void traverse(SplAstNode *current) {
             } else if (type_str == "char") {
                 type = SPL_EXP_CHAR;
             } else {
-                throw std::runtime_error("unknown primitive type: " + type_str);
+                std::cerr << "unknown primitive type: " << type_str
+                          << std::endl;
+                // throw std::runtime_error("unknown primitive type: " +
+                // type_str);
             }
             auto exact_type = std::make_shared<SplExpExactType>(type);
             current->attr.value = std::make_unique<SplValSpec>(exact_type);
@@ -249,8 +252,10 @@ void traverse(SplAstNode *current) {
             current->attr.value = std::make_unique<SplValSpec>(exact_type);
             install_specifier(exact_type);
         } else {
-            throw std::runtime_error("specifier has child of: " +
-                                     std::to_string(node->attr.type));
+            // throw std::runtime_error("specifier has child of: " +
+            //                          std::to_string(node->attr.type));
+            std::cerr << "specifier has child of: "
+                      << std::to_string(node->attr.type) << std::endl;
         }
         break;
     }
@@ -266,7 +271,8 @@ void traverse(SplAstNode *current) {
                            SplSymbolTable::SPL_SYM_INSTALL_TYPE_CONFLICT) {
                     report_semantic_error(34, current);
                 } else {
-                    throw std::runtime_error("bad installation");
+                    std::cerr << "bad installation" << std::endl;
+                    // throw std::runtime_error("bad installation");
                 }
                 current->error_propagated = true;
                 uninstall_struct();
@@ -360,7 +366,8 @@ void traverse(SplAstNode *current) {
                                SplSymbolTable::SPL_SYM_INSTALL_TYPE_CONFLICT) {
                         report_semantic_error(34, current);
                     } else {
-                        throw std::runtime_error("bad installation");
+                        std::cerr << "bad installation" << std::endl;
+                        // throw std::runtime_error("bad installation");
                     }
                     current->error_propagated = true;
                     return;
@@ -376,7 +383,8 @@ void traverse(SplAstNode *current) {
                                SplSymbolTable::SPL_SYM_INSTALL_TYPE_CONFLICT) {
                         report_semantic_error(34, current);
                     } else {
-                        throw std::runtime_error("bad installation");
+                        std::cerr << "bad installation" << std::endl;
+                        // throw std::runtime_error("bad installation");
                     }
                     current->error_propagated = true;
                     current_structs.top().isBroken = true;
@@ -397,7 +405,8 @@ void traverse(SplAstNode *current) {
             } else if (ret == SplSymbolTable::SPL_SYM_INSTALL_TYPE_CONFLICT) {
                 report_semantic_error(34, current);
             } else {
-                throw std::runtime_error("bad installation");
+                std::cerr << "bad installation" << std::endl;
+                // throw std::runtime_error("bad installation");
             }
             current->error_propagated = true;
             broken_function = true;
@@ -595,7 +604,10 @@ void traverse(SplAstNode *current) {
                 }
                 auto it_struct = symbols.lookup(v_struct.type->struct_name);
                 if (!it_struct.has_value()) {
-                    throw std::runtime_error("instance of undefined structure");
+                    std::cerr << "instance of undefined structure" << std::endl;
+                    current->error_propagated = true;
+                    return;
+                    // throw std::runtime_error("instance of undefined structure");
                 }
                 auto &sym_struct = static_cast<SplStructSymbol &>(**it_struct);
                 auto it_member = sym_struct.members.find(v_id.val_id);
@@ -691,7 +703,10 @@ void traverse(SplAstNode *current) {
                     return;
                 }
                 if (!v_exp_arr.is_lvalue) {
-                    throw std::runtime_error("array access on rvalue");
+                    std::cerr << "array access on rvalue" << std::endl;
+                    current->error_propagated = true;
+                    return;
+                    // throw std::runtime_error("array access on rvalue");
                 }
                 std::shared_ptr<SplExpExactType> type =
                     std::make_shared<SplExpExactType>(*v_exp_arr.type);
