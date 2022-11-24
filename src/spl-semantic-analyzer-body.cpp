@@ -463,7 +463,7 @@ void traverse(SplAstNode *current) {
                     current->attr.value =
                         std::make_unique<SplValExp>(symbol.var_type, true);
                 } else {
-                    report_semantic_error(1, current);
+                    report_semantic_error(1, current, current->children[0]->attr.val<SplValId>().val_id);
                     current->error_propagated = true;
                     return;
                 }
@@ -677,8 +677,9 @@ void traverse(SplAstNode *current) {
                 auto &v_exp_arr = current->children[0]->attr.val<SplValExp>();
                 auto &v_exp_idx = current->children[2]->attr.val<SplValExp>();
 
+                std::cout << v_exp_arr.type->exp_type << std::endl; // FIXME: debug
                 if (!v_exp_arr.type->is_array()) {
-                    report_semantic_error(10, current);
+                    report_semantic_error(10, current, std::to_string(v_exp_arr.type->exp_type));
                     current->error_propagated = true;
                     return;
                 }

@@ -182,7 +182,7 @@ struct SplAttr {
 };
 
 enum SplExpType {
-    SPL_EXP_INIT,
+    SPL_EXP_INIT = 0,
     SPL_EXP_INT,
     SPL_EXP_FLOAT,
     SPL_EXP_CHAR,
@@ -251,7 +251,14 @@ class SplSymbolTable {
         SPL_SYM_INSTALL_REDEF_VAR,
     };
     void forward() { tables.emplace_back(); }
-    void back() { tables.pop_back(); }
+    void back() {
+        std::cout << "pop: " << std::endl;
+        for (auto it = tables.back().cbegin(); it != tables.back().cend();
+             ++it) {
+            it->second->print();
+        }
+        tables.pop_back();
+    }
     int install_symbol(std::shared_ptr<SplSymbol> sym) {
         auto &st = tables.back();
         auto it = st.find(sym->name);

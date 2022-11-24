@@ -3,14 +3,15 @@
 
 extern bool hasError;
 
-void report_semantic_error(int type_id, const SplAstNode *const node) {
+void report_semantic_error(int type_id, const SplAstNode *const node,
+                           const std::string &info = "") {
     hasError = true;
     int lineno = node->loc.first_line;
     switch (type_id) {
     case 1:
-        printf("Error type 1 at Line %d: a variable is used without a "
-               "definition\n",
-               lineno);
+        printf(
+            "Error type 1 at Line %d: variable %s is used without definition\n",
+            lineno, info.c_str());
         break;
     case 2:
         printf("Error type 2 at Line %d: a function is invoked without a "
@@ -54,7 +55,7 @@ void report_semantic_error(int type_id, const SplAstNode *const node) {
         break;
     case 10:
         printf("Error type 10 at Line %d: applying indexing operator ([...]) "
-               "on non-array type variables\n",
+               "on non-array type variable",
                lineno);
         break;
     case 11:
