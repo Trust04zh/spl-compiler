@@ -1,4 +1,4 @@
-Lexical analysis and syntax analysis part for spl (SUSTech programming language) project.
+Compiler for spl (SUSTech programming language) project.
 
 - `src`: source code
 - `test`: basic testcases
@@ -39,6 +39,7 @@ apply `splc` parser on all `.spl` files in specified directory
 ```
 // src/spl-semantic-analyzer-standalone.cpp
 #define SPL_SEMANTIC_ANALYZER_VERBOSE  // uncomment this line to enable verbose output in semantic analyzer
+```
 
 ```
 // src/spl-semantic-analyzer-standalone.cpp
@@ -55,40 +56,3 @@ apply `splc` parser on all `.spl` files in specified directory
 // src/spl-semantic-analyzer-standalone.cpp
 // #define LOCAL_SCOPE  // uncomment this line to enable local scope
 ```
-
-## checklist
-
-**anything for struct not implemented yet**
-
-- [] type system & type propagation in expression
-- [] error report
-  - [x] 1
-  - [x] 2
-  - [x] 3
-  - [x] 4
-  - [x] 5
-  - [x] 6
-  - [x] 7
-  - [x] 8
-  - [x] 9
-  - [x] 10
-  - [x] 11
-  - [x] 12
-  - [x] 13
-  - [x] 14
-  - [x] 15
-  - [x] 21
-  - [x] 31
-  - [x] 32
-  - [x] 33
-  - [x] 34
-  - [] 41
-- [x] symbol table
-  - [x] variable table
-  - [x] struct table
-  - [x] function table
-- [x] global scoping
-- [] bonus: local scoping
-- [] bonus: function declaration
-- [] bonus: function overload
-- [] bonus: type compatibility
