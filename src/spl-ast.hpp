@@ -237,11 +237,8 @@ class SplSymbol {
     virtual void print() = 0;
 };
 
-class SplSymbolTable {
-  private:
-    std::vector<std::unordered_map<std::string, std::shared_ptr<SplSymbol>>>
-        tables{1};
-
+class SplSymbolTable
+    : public std::unordered_map<std::string, std::shared_ptr<SplSymbol>> {
   public:
     enum SplSymbolInstallResult {
         SPL_SYM_INSTALL_OK = 0,
@@ -250,17 +247,8 @@ class SplSymbolTable {
         SPL_SYM_INSTALL_REDEF_STRUCT,
         SPL_SYM_INSTALL_REDEF_VAR,
     };
-    void forward() { tables.emplace_back(); }
-    void back() {
-        std::cout << "pop: " << std::endl;
-        for (auto it = tables.back().cbegin(); it != tables.back().cend();
-             ++it) {
-            it->second->print();
-        }
-        tables.pop_back();
-    }
-    int install_symbol(std::shared_ptr<SplSymbol> sym) {
-        auto &st = tables.back();
+    static int install_symbol(SplSymbolTable &st,
+                              std::shared_ptr<SplSymbol> sym) {
         auto it = st.find(sym->name);
         if (it != st.end()) {
             if (it->second->sym_type == sym->sym_type) {
@@ -279,6 +267,35 @@ class SplSymbolTable {
         st.emplace(sym->name, sym);
         return SPL_SYM_INSTALL_OK;
     }
+    int install_symbol(std::shared_ptr<SplSymbol> sym) {
+        return install_symbol(*this, sym);
+    }
+    void print() {
+        std::cout << "Symbol Table:" << std::endl;
+        for (auto it = this->cbegin(); it != this->cend(); ++it) {
+            it->second->print();
+        }
+    }
+};
+
+class SplScope {
+  private:
+    std::vector<SplSymbolTable> tables{1};
+
+  public:
+    void forward() { tables.emplace_back(); }
+    void back() {
+#if defined(SPL_SEMANTIC_ANALYZER_VERBOSE)
+        std::cout << "pop: " << std::endl;
+        print();
+#endif
+        tables.pop_back();
+    }
+    int install_symbol(std::shared_ptr<SplSymbol> sym) {
+        auto &st = tables.back();
+        auto it = st.find(sym->name);
+        return st.install_symbol(sym);
+    }
     std::optional<std::shared_ptr<SplSymbol>> lookup(const std::string &name) {
         for (auto it = tables.crbegin(); it != tables.crend(); it++) {
             auto &table = *it;
@@ -290,7 +307,7 @@ class SplSymbolTable {
         return std::nullopt;
     }
     void print() {
-        std::cout << "Symbol Table:" << std::endl;
+        std::cout << "Scope:" << std::endl;
         for (int i = 0; i < tables.size(); i++) {
             std::cout << "Layer " << i << std::endl;
             for (auto it = tables[i].cbegin(); it != tables[i].cend(); ++it) {

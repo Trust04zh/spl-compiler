@@ -10,7 +10,7 @@
 extern SplAstNode *prog;
 extern bool hasError;
 
-extern SplSymbolTable symbols;
+extern SplScope symbols;
 
 // it is NOT strictly required to uninstall side effect variables when they can
 // be uninstalled, and uninstallation may be skipped due to error propagation
@@ -463,7 +463,9 @@ void traverse(SplAstNode *current) {
                     current->attr.value =
                         std::make_unique<SplValExp>(symbol.var_type, true);
                 } else {
-                    report_semantic_error(1, current, current->children[0]->attr.val<SplValId>().val_id);
+                    report_semantic_error(
+                        1, current,
+                        current->children[0]->attr.val<SplValId>().val_id);
                     current->error_propagated = true;
                     return;
                 }
@@ -596,13 +598,14 @@ void traverse(SplAstNode *current) {
                     throw std::runtime_error("instance of undefined structure");
                 }
                 auto &sym_struct = static_cast<SplStructSymbol &>(**it_struct);
-                auto it_member = sym_struct.members.lookup(v_id.val_id);
-                if (!it_member.has_value()) {
+                auto it_member = sym_struct.members.find(v_id.val_id);
+                if (it_member == sym_struct.members.end()) {
                     report_semantic_error(14, current);
                     current->error_propagated = true;
                     return;
                 }
-                auto &member = static_cast<SplVariableSymbol &>(**it_member);
+                auto &member =
+                    static_cast<SplVariableSymbol &>(*it_member->second);
                 current->attr.value =
                     std::make_unique<SplValExp>(member.var_type, true);
                 break;
@@ -677,9 +680,11 @@ void traverse(SplAstNode *current) {
                 auto &v_exp_arr = current->children[0]->attr.val<SplValExp>();
                 auto &v_exp_idx = current->children[2]->attr.val<SplValExp>();
 
-                std::cout << v_exp_arr.type->exp_type << std::endl; // FIXME: debug
+                std::cout << v_exp_arr.type->exp_type
+                          << std::endl; // FIXME: debug
                 if (!v_exp_arr.type->is_array()) {
-                    report_semantic_error(10, current, std::to_string(v_exp_arr.type->exp_type));
+                    report_semantic_error(
+                        10, current, std::to_string(v_exp_arr.type->exp_type));
                     current->error_propagated = true;
                     return;
                 }

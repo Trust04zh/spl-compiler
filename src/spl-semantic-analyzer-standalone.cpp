@@ -8,8 +8,8 @@
 SplAstNode *prog = nullptr;
 bool hasError = false;
 
-// global symbol table
-SplSymbolTable symbols;
+// scopes
+SplScope symbols;
 
 int main(int argc, char **argv) {
     char *file_path;
@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
         spl_semantic_analysis();
 
 #if defined(SPL_SEMANTIC_ANALYZER_VERBOSE)
-        symbols.print();
+        symbols.back();
 #endif
 
         delete prog;
