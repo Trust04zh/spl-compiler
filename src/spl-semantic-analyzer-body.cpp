@@ -454,7 +454,7 @@ void traverse(SplAstNode *current) {
                     current->children[0]->attr.val<SplValId>().val_id);
                 if (it.has_value()) {
                     if (it.value()->sym_type != SPL_SYM_VAR) {
-                        report_semantic_error(16, current);
+                        report_semantic_error(35, current);
                         current->error_propagated = true;
                         return;
                     }
@@ -749,16 +749,20 @@ void traverse(SplAstNode *current) {
             parent->attr.type == SplAstNodeType::SPL_STRUCTSPECIFIER) {
             // StructSpecifier -> STRUCT ID *LC* DefList RC
         } else {
+#if defined(LOCAL_SCOPE)
             symbols.forward();
+#endif
         }
         break;
     }
     case SplAstNodeType::SPL_RC: {
         if (parent != nullptr &&
             parent->attr.type == SplAstNodeType::SPL_STRUCTSPECIFIER) {
-            // StructSpecifier -> STRUCT ID *LC* DefList RC
+            // StructSpecifier -> STRUCT ID LC DefList *RC*
         } else {
+#if defined(LOCAL_SCOPE)
             symbols.back();
+#endif
         }
         break;
     }

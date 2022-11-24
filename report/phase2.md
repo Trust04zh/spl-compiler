@@ -3,7 +3,7 @@
 ### 基本样例说明
 
 test_1：
-test_2：
+test_2：各种错误都有。
 test_3：一道[洛谷平台上的DP题解](https://www.luogu.com.cn/problem/solution/P1002)，将其中spl不支持的语法改为支持的等价实现。
 test_4：
 test_5：

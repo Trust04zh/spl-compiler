@@ -47,7 +47,13 @@ apply `splc` parser on all `.spl` files in specified directory
 
 ```
 // src/spl-semantic-analyzer-standalone.cpp
-#define SPL_SEMANTIC_ANALYZER_VERBOSE  // uncomment this line to enable verbose output in semantic analyzer
+#define SPL_SEMANTIC_ANALYZER_VERBOSE
+// uncomment this line to enable verbose output in semantic analyzer
+```
+
+```
+// src/spl-semantic-analyzer-standalone.cpp
+// #define LOCAL_SCOPE  // uncomment this line to enable local scope
 ```
 
 ## checklist

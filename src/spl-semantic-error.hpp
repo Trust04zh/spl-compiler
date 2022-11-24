@@ -82,10 +82,6 @@ void report_semantic_error(int type_id, const SplAstNode *const node,
         printf("Error type 15 at Line %d: redefine the same structure type\n",
                lineno);
         break;
-    case 16:
-        printf("Error type 16 at Line %d: raw use of struct or function name\n",
-               lineno);
-        break;
     /* type 2x: trivial error types that conflict with assumptions */
     case 21:
         printf("Error type 21 at Line %d: only int variables can do boolean "
@@ -109,6 +105,10 @@ void report_semantic_error(int type_id, const SplAstNode *const node,
     case 34:
         printf("Error type 34 at Line %d: symbol redeclared as different kind "
                "of entity\n",
+               lineno);
+        break;
+    case 35:
+        printf("Error type 35 at Line %d: raw use of struct or function name\n",
                lineno);
         break;
     /* type 4x: extra error types */

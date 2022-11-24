@@ -9,6 +9,7 @@ struct S ss;
 int main() {
     a = 1;
     b();
+    return 0;
 }
 
 int x, x;
@@ -20,6 +21,7 @@ int main() {
     1 = 1;
     main() = 1;
     y = s + 1;
+    return y;
 }
 
 int f() {
@@ -37,15 +39,13 @@ int g() {
     arr[ff];
     ff.a;
     ss.b;
+    return 1;
 }
 
 struct S {};
 
-int h() {
-    f;
-    arr[f];
-    f = S;
-    1.0 && 'c';
+int g2() {
+    return 1.0 && 'c';
 }
 
 struct SSS;
@@ -57,3 +57,10 @@ int d() {
 struct ff {};
 int S;
 int S() {}
+
+int h() {
+    f;
+    arr[f];
+    f = S;
+    return 0;
+}
