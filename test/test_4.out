@@ -1,0 +1,3 @@
+Error type 5 at Line 22: unmatching types appear at both sides of the assignment operator (=)
+Error type 21 at Line 23: only int variables can do boolean operations
+Error type 10 at Line 24: applying indexing operator ([...]) on non-array type variable

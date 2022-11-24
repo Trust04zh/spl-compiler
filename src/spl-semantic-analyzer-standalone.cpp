@@ -1,6 +1,6 @@
 // #define SPL_SEMANTIC_ANALYZER_VERBOSE
 // uncomment this line to enable verbose output in semantic analyzer
-// #define LOCAL_SCOPE  // uncomment this line to enable local scope
+// #define LOCAL_SCOPE // uncomment this line to enable local scope
 #include "spl-ast.hpp"
 #include "spl-semantic-analyzer-body.cpp"
 #include "spl-semantic-error.hpp"

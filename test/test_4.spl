@@ -1,0 +1,29 @@
+struct Compiler {
+    struct Parser {
+        struct Lexer {
+            int lexer_version;
+        } lexer;
+        int parser_version;
+    } parser;
+    struct SemanticAnalyser {
+        int semantic_analyzer_version;
+    } semantic_analyser;
+    struct CodeGentor {
+        int codegen_version;
+    } codegen;
+};
+
+int main() {
+    struct Compiler compiler, ehhh;
+    compiler.parser.lexer.lexer_version = 1;
+    compiler.parser.parser_version = 2;
+    compiler.semantic_analyser.semantic_analyzer_version = 3;
+    compiler.codegen.codegen_version = 4;
+    ehhh.parser.lexer.lexer_version = 's';
+    ehhh.parser == 1;
+    ehhh.codegen.codegen_version[3] = 5;
+    {
+        struct Lexer llexer;
+    }
+    return 0;
+}

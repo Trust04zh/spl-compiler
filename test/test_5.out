@@ -1,0 +1,4 @@
+Error type 1 at Line 15: variable d is used without definition
+Error type 9 at Line 16: a function's arguments mismatch the declared parameters (either types or numbers, or both)
+Error type 9 at Line 17: a function's arguments mismatch the declared parameters (either types or numbers, or both)
+Error type 8 at Line 18: a function's return value type mismatches the declared type
