@@ -1,5 +1,6 @@
 #include <exception>
 #include <optional>
+#include <stack>
 #include <string>
 
 #include "spl-ast.hpp"
@@ -43,23 +44,16 @@ void install_function(const std::string &name,
     latest_function = std::make_shared<SplFunctionSymbol>(name, return_type);
 }
 
-std::shared_ptr<SplStructSymbol> latest_struct = nullptr;
-bool broken_struct = false;
-bool on_struct_body = false;
-void uninstall_struct() {
-    // do not delete latest_struct, since it is moved to symbols_struct
-    broken_struct = false;
-    latest_struct.reset();
-}
-void install_struct(const std::string &name) {
-    if (latest_struct != nullptr) {
-        uninstall_struct();
-        //        throw std::runtime_error("latest_struct is not null when
-        //        installing");
-    }
-    broken_struct = false;
-    latest_struct = std::make_shared<SplStructSymbol>(name);
-}
+struct StructInfo {
+    bool isBroken;
+    std::shared_ptr<SplStructSymbol> current;
+    explicit StructInfo(const std::string &name)
+        : isBroken{false}, current{std::make_shared<SplStructSymbol>(name)} {}
+};
+
+std::stack<StructInfo> current_structs;
+void uninstall_struct() { current_structs.pop(); }
+void install_struct(const std::string &name) { current_structs.emplace(name); }
 
 // postorder traverse the AST and do semantic analysis
 void traverse(SplAstNode *current);
@@ -130,7 +124,7 @@ void traverse(SplAstNode *current) {
         }
     }
     // latest_struct
-    if (broken_struct) {
+    if (current_structs.size() != 0 && current_structs.top().isBroken) {
         switch (current->attr.type) {
         case SplAstNodeType::SPL_VARDEC: {
             if (parent != nullptr &&
@@ -140,9 +134,7 @@ void traverse(SplAstNode *current) {
                 // ParamDec -> Specifier *VarDec*
                 // Dec -> *VarDec*
                 // Dec -> *VarDec* ASSIGN Exp
-                if (on_struct_body) {
-                    current->error_propagated = true;
-                }
+                current->error_propagated = true;
             }
             break;
         }
@@ -196,7 +188,7 @@ void traverse(SplAstNode *current) {
             if (parent != nullptr &&
                 parent->attr.type == SplAstNodeType::SPL_STRUCTSPECIFIER &&
                 parent->children.size() == 5) {
-                broken_struct = true;
+                current_structs.top().isBroken = true;
             }
             break;
         }
@@ -208,8 +200,8 @@ void traverse(SplAstNode *current) {
                 // ParamDec -> Specifier *VarDec*
                 // Dec -> *VarDec*
                 // Dec -> *VarDec* ASSIGN Exp
-                if (on_struct_body) {
-                    broken_struct = true;
+                if (current_structs.size() != 0) {
+                    current_structs.top().isBroken = true;
                 }
             }
             break;
@@ -222,20 +214,8 @@ void traverse(SplAstNode *current) {
     switch (current->attr.type) {
     case SplAstNodeType::SPL_EXTDEF: {
         // ExtDef -> Specifier SEMI
-        if (current->children.size() == 2) {
-            if (current->children[0]->attr.val<SplValSpec>().type->exp_type ==
-                SplExpType::SPL_EXP_STRUCT) {
-                // FIXME: remove this?
-                // throw std::runtime_error("uncaught struct declaration");
-            } else {
-                // invalid statement, "int;" for example
-                report_semantic_error(31, current);
-                current->error_propagated = true;
-                return;
-            }
-        } else if (current->children.size() == 3 &&
-                   current->children[1]->attr.type ==
-                       SplAstNodeType::SPL_FUNDEC) {
+        if (current->children.size() == 3 &&
+            current->children[1]->attr.type == SplAstNodeType::SPL_FUNDEC) {
             // ExtDef -> Specifier FunDec CompSt
             uninstall_function();
         }
@@ -275,9 +255,10 @@ void traverse(SplAstNode *current) {
         break;
     }
     case SplAstNodeType::SPL_STRUCTSPECIFIER: {
-        if (current->children.size() == 5) {
+        if (current->children.size() == 5 || current->children.size() == 4) {
+            // StructSpecifier -> STRUCT ID LC RC
             // StructSpecifier -> STRUCT ID LC DefList RC
-            int ret = symbols.install_symbol(latest_struct);
+            int ret = symbols.install_symbol(current_structs.top().current);
             if (ret != SplSymbolTable::SPL_SYM_INSTALL_OK) {
                 if (ret == SplSymbolTable::SPL_SYM_INSTALL_REDEF_STRUCT) {
                     report_semantic_error(15, current);
@@ -288,6 +269,7 @@ void traverse(SplAstNode *current) {
                     throw std::runtime_error("bad installation");
                 }
                 current->error_propagated = true;
+                uninstall_struct();
                 return;
             }
             uninstall_struct();
@@ -368,7 +350,7 @@ void traverse(SplAstNode *current) {
             auto &v_vardec = current->attr.val<SplValVarDec>();
             auto symbol = std::make_shared<SplVariableSymbol>(v_vardec.name,
                                                               v_vardec.type);
-            if (!on_struct_body) {
+            if (!current_structs.size() != 0) {
                 // install variable symbol
                 int ret = symbols.install_symbol(symbol);
                 if (ret != SplSymbolTable::SPL_SYM_INSTALL_OK) {
@@ -385,7 +367,8 @@ void traverse(SplAstNode *current) {
                 }
             } else {
                 // add struct member
-                int ret = latest_struct->members.install_symbol(symbol);
+                int ret = current_structs.top().current->members.install_symbol(
+                    symbol);
                 if (ret != SplSymbolTable::SPL_SYM_INSTALL_OK) {
                     if (ret == SplSymbolTable::SPL_SYM_INSTALL_REDEF_VAR) {
                         report_semantic_error(3, current);
@@ -396,7 +379,7 @@ void traverse(SplAstNode *current) {
                         throw std::runtime_error("bad installation");
                     }
                     current->error_propagated = true;
-                    broken_struct = true;
+                    current_structs.top().isBroken = true;
                     return;
                 }
             }
@@ -428,7 +411,6 @@ void traverse(SplAstNode *current) {
         // install function param for funcition symbol
         auto it =
             symbols.lookup(current->children[1]->attr.val<SplValVarDec>().name);
-        std::cout << it.value()->sym_type << std::endl;
         latest_function->params.push_back(it.value());
         // uninstall specifier
         uninstall_specifier();
@@ -471,6 +453,11 @@ void traverse(SplAstNode *current) {
                 auto it = symbols.lookup(
                     current->children[0]->attr.val<SplValId>().val_id);
                 if (it.has_value()) {
+                    if (it.value()->sym_type != SPL_SYM_VAR) {
+                        report_semantic_error(16, current);
+                        current->error_propagated = true;
+                        return;
+                    }
                     SplVariableSymbol &symbol =
                         static_cast<SplVariableSymbol &>(*(it.value()));
                     current->attr.value =
@@ -608,16 +595,14 @@ void traverse(SplAstNode *current) {
                 if (!it_struct.has_value()) {
                     throw std::runtime_error("instance of undefined structure");
                 }
-                auto &sym_struct =
-                    static_cast<SplStructSymbol &>(**it_struct);
+                auto &sym_struct = static_cast<SplStructSymbol &>(**it_struct);
                 auto it_member = sym_struct.members.lookup(v_id.val_id);
                 if (!it_member.has_value()) {
                     report_semantic_error(14, current);
                     current->error_propagated = true;
                     return;
                 }
-                auto &member =
-                    static_cast<SplVariableSymbol &>(**it_member);
+                auto &member = static_cast<SplVariableSymbol &>(**it_member);
                 current->attr.value =
                     std::make_unique<SplValExp>(member.var_type, true);
                 break;
@@ -675,8 +660,7 @@ void traverse(SplAstNode *current) {
                 }
                 for (size_t i = 0; i < arg_types.size(); ++i) {
                     if (*arg_types[arg_types.size() - 1 - i] !=
-                        *static_cast<SplVariableSymbol &>(
-                             *symbol.params[i])
+                        *static_cast<SplVariableSymbol &>(*symbol.params[i])
                              .var_type) {
                         report_semantic_error(9, current);
                         current->error_propagated = true;
@@ -759,7 +743,6 @@ void traverse(SplAstNode *current) {
         if (parent != nullptr &&
             parent->attr.type == SplAstNodeType::SPL_STRUCTSPECIFIER) {
             // StructSpecifier -> STRUCT ID *LC* DefList RC
-            on_struct_body = true;
         } else {
             symbols.forward();
         }
@@ -769,7 +752,6 @@ void traverse(SplAstNode *current) {
         if (parent != nullptr &&
             parent->attr.type == SplAstNodeType::SPL_STRUCTSPECIFIER) {
             // StructSpecifier -> STRUCT ID *LC* DefList RC
-            on_struct_body = false;
         } else {
             symbols.back();
         }

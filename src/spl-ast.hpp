@@ -370,11 +370,6 @@ class SplFunctionSymbol : public SplSymbol {
     }
 };
 
-class SplScope {
-  public:
-    SplSymbolTable symbols;
-};
-
 struct SplAstNode {
     std::vector<SplAstNode *> children;
     const SplAstNode *parent{nullptr};

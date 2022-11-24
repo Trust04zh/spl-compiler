@@ -75,7 +75,7 @@ ExtDefList:
 ExtDef:
       Specifier ExtDecList SEMI  { $$ = new SplAstNode("ExtDef", {SPL_EXTDEF, nullptr}, SplLoc(&@$), $1, $2, $3); }
     /* "int;" ? */
-    | Specifier SEMI  { $$ = new SplAstNode("ExtDef", {SPL_EXTDEF, nullptr}, SplLoc(&@$), $1, $2); }
+    | StructSpecifier SEMI  { $$ = new SplAstNode("ExtDef", {SPL_EXTDEF, nullptr}, SplLoc(&@$), $1, $2); }
     /* function definition */
     | Specifier FunDec CompSt  { $$ = new SplAstNode("ExtDef", {SPL_EXTDEF, nullptr}, SplLoc(&@$), $1, $2, $3); }
     ;

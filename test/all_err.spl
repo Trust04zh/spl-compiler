@@ -1,0 +1,59 @@
+struct S {
+    int a;
+};
+
+int arr[10];
+float ff;
+struct S ss;
+
+int main() {
+    a = 1;
+    b();
+}
+
+int x, x;
+
+int main() {
+    int y;
+    struct S s;
+    y = 1.0;
+    1 = 1;
+    main() = 1;
+    y = s + 1;
+}
+
+int f() {
+    return 'c';
+}
+
+int g() {
+    f(1);
+    f(2, 3);
+    2[1];
+    x[2];
+    x();
+    S(1);
+    arr['c'];
+    arr[ff];
+    ff.a;
+    ss.b;
+}
+
+struct S {};
+
+int h() {
+    f;
+    arr[f];
+    f = S;
+    1.0 && 'c';
+}
+
+struct SSS;
+
+int d() {
+    struct SSS ss;
+}
+
+struct ff {};
+int S;
+int S() {}
