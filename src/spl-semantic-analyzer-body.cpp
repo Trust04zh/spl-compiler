@@ -523,7 +523,7 @@ void traverse(SplAstNode *current) {
                     current->error_propagated = true;
                     return;
                 }
-                if (v_exp_lhs.type->exp_type != v_exp_rhs.type->exp_type) {
+                if (*v_exp_lhs.type != *v_exp_rhs.type) {
                     report_semantic_error(5, current);
                     current->error_propagated = true;
                     return;
@@ -607,7 +607,8 @@ void traverse(SplAstNode *current) {
                     std::cerr << "instance of undefined structure" << std::endl;
                     current->error_propagated = true;
                     return;
-                    // throw std::runtime_error("instance of undefined structure");
+                    // throw std::runtime_error("instance of undefined
+                    // structure");
                 }
                 auto &sym_struct = static_cast<SplStructSymbol &>(**it_struct);
                 auto it_member = sym_struct.members.find(v_id.val_id);

@@ -215,11 +215,21 @@ struct SplExpExactType {
         }
     }
     bool operator==(const SplExpExactType &rhs) const {
-        return !(exp_type != rhs.exp_type ||
-                 (exp_type == SplExpType::SPL_EXP_STRUCT &&
-                  struct_name != rhs.struct_name) ||
-                 array_idx != rhs.array_idx ||
-                 (is_array() && dims->size() != rhs.dims->size()));
+        if (exp_type != rhs.exp_type) {
+            return false;
+        }
+        if (exp_type == SplExpType::SPL_EXP_STRUCT &&
+            struct_name != rhs.struct_name) {
+            return false;
+        }
+        if (is_array() != rhs.is_array()) {
+            return false;
+        }
+        if (is_array() &&
+            dims->size() - array_idx != rhs.dims->size() - rhs.array_idx) {
+            return false;
+        }
+        return true;
     }
     bool operator!=(const SplExpExactType &rhs) const {
         return !(*this == rhs);
