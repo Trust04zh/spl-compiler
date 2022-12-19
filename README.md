@@ -8,6 +8,8 @@ see [report/phase1.md](report/phase1.md) for report for lexer and parser.
 
 see [report/phase2.md](report/phase2.md) for report for semantic analyzer.
 
+see [report/phase3.md](report/phase3.md) for report for ir generator.
+
 use `git checkout parser` to checkout the parser version.
 
 ## usage
@@ -56,3 +58,5 @@ apply `splc` parser on all `.spl` files in specified directory
 // src/spl-semantic-analyzer-standalone.cpp
 // #define LOCAL_SCOPE  // uncomment this line to enable local scope
 ```
+
+## todo

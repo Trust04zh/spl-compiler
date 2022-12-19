@@ -15,9 +15,10 @@ BISONFLAGS ?= -t
 
 # source files for utilities
 SPL_AST_HPP = $(SOURCE_DIR)/spl-ast.hpp
-SPL_AST_CPP = $(SOURCE_DIR)/spl-ast.cpp
 
 SPL_SEMANTIC_ERROR_HPP = $(SOURCE_DIR)/spl-semantic-error.hpp
+
+SPL_IR_HPP = $(SOURCE_DIR)/spl-ir.hpp
 
 # source files for lexer
 SPL_LEXER_BODY_L = $(SOURCE_DIR)/spl-lexer-body.l
@@ -41,10 +42,18 @@ SPL_PARSER_STANDALONE_OUT = $(BUILD_DIR)/spl-parser-standalone
 
 # source files for semantic analyzer
 SPL_SEMANTIC_ANALYZER_BODY_CPP = $(SOURCE_DIR)/spl-semantic-analyzer-body.cpp
+SPL_SEMANTIC_ANALYZER_MODULE_CPP = $(SOURCE_DIR)/spl-semantic-analyzer-module.cpp
 SPL_SEMANTIC_ANALYZER_STANDALONE_CPP = $(SOURCE_DIR)/spl-semantic-analyzer-standalone.cpp
 
 # target files for semantic analyzer
 SPL_SEMANTIC_ANALYZER_STANDALONE_OUT = $(BUILD_DIR)/spl-semantic-analyzer-standalone
+
+# source files for ir generator
+SPL_IR_GENERATOR_BODY_CPP = $(SOURCE_DIR)/spl-ir-generator-body.cpp
+SPL_IR_GENERATOR_STANDALONE_CPP = $(SOURCE_DIR)/spl-ir-generator-standalone.cpp
+
+# target files for ir generator
+SPL_IR_GENERATOR_STANDALONE_OUT = $(BUILD_DIR)/spl-ir-generator-standalone
 
 # binary products
 SPLC = $(BINARY_DIR)/splc
@@ -74,6 +83,13 @@ $(SPL_SEMANTIC_ANALYZER_STANDALONE_OUT): $(SPL_SEMANTIC_ANALYZER_BODY_CPP) $(SPL
 		$(SPL_PARSER_MODULE_CPP) $(SPL_PARSER_BODY_CPP)
 	@mkdir -p $(dir $@)
 	$(CC) $(CPPFLAGS) $(SPL_SEMANTIC_ANALYZER_STANDALONE_CPP) -o $(SPL_SEMANTIC_ANALYZER_STANDALONE_OUT)
+
+$(SPL_IR_GENERATOR_STANDALONE_OUT): $(SPL_IR_GENERATOR_BODY_CPP) $(SPL_IR_GENERATOR_STANDALONE_CPP) \
+		$(SPL_AST_HPP) $(SPL_SEMANTIC_ERROR_HPP) $(SPL_IR_HPP) \
+		$(SPL_SEMANTIC_ANALYZER_MODULE_CPP) $(SPL_SEMANTIC_ANALYZER_BODY_CPP) \
+		$(SPL_PARSER_MODULE_CPP) $(SPL_PARSER_BODY_CPP)
+	@mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(SPL_IR_GENERATOR_STANDALONE_CPP) -o $(SPL_IR_GENERATOR_STANDALONE_OUT)
 
 $(SPLC): $(SPL_SEMANTIC_ANALYZER_STANDALONE_OUT)
 	@mkdir -p $(dir $@)

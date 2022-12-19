@@ -1,9 +1,5 @@
-// #define SPL_SEMANTIC_ANALYZER_VERBOSE
-// uncomment this line to enable verbose output in semantic analyzer
-// #define LOCAL_SCOPE // uncomment this line to enable local scope
 #include "spl-ast.hpp"
-#include "spl-semantic-analyzer-body.cpp"
-#include <cstdio>
+#include "spl-ir-generator-body.cpp"
 
 SplAstNode *prog = nullptr;
 bool hasError = false;
@@ -30,10 +26,6 @@ int main(int argc, char **argv) {
 
         // apply semantic analyzer on prog
         spl_semantic_analysis();
-
-#if defined(SPL_SEMANTIC_ANALYZER_VERBOSE)
-        symbols.back();
-#endif
 
         delete prog;
 
