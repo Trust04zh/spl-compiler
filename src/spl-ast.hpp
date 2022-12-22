@@ -323,8 +323,10 @@ class SplScope {
         }
         now = now->parent;
     }
-    int install_symbol(std::shared_ptr<SplSymbol> sym, bool is_func = false) {
-        return is_func ? now->parent->table.install_symbol(sym) : now->table.install_symbol(sym);
+    int install_symbol(std::shared_ptr<SplSymbol> sym) {
+        return (sym->sym_type == SplSymbolType::SPL_SYM_FUNC)
+                   ? now->parent->table.install_symbol(sym)
+                   : now->table.install_symbol(sym);
     }
     std::optional<std::shared_ptr<SplSymbol>> lookup(const std::string &name) {
         auto *cur = now;

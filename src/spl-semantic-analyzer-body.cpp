@@ -400,7 +400,7 @@ void traverse(SplAstNode *current) {
     case SplAstNodeType::SPL_FUNDEC: {
         // FunDec -> ID LP VarList RP
         // FunDec -> ID LP RP
-        int ret = symbols.install_symbol(latest_function, true);
+        int ret = symbols.install_symbol(latest_function);
         if (ret != SplSymbolTable::SPL_SYM_INSTALL_OK) {
             if (ret == SplSymbolTable::SPL_SYM_INSTALL_REDEF_FUNC) {
                 report_semantic_error(4, current);
