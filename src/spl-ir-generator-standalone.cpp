@@ -27,6 +27,8 @@ int main(int argc, char **argv) {
         // apply semantic analyzer on prog
         spl_semantic_analysis();
 
+        generate_ir();
+
         delete prog;
 
         if (!hasError) { // if there is no error, print nothing

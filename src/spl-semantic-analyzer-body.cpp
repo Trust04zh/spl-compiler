@@ -3,6 +3,7 @@
 #include <stack>
 #include <string>
 
+#define LOCAL_SCOPE
 #include "spl-ast.hpp"
 #include "spl-parser-module.cpp"
 #include "spl-semantic-error.hpp"
@@ -61,11 +62,12 @@ void traverse(SplAstNode *current);
 void spl_semantic_analysis() {
     prog->completeParent();
     traverse(prog);
+    symbols.print();
     return;
 }
 
 void traverse(SplAstNode *current) {
-    auto parent = current->parent;
+    auto *parent = current->parent;
     for (auto child : current->children) {
         traverse(child);
     }
@@ -398,7 +400,7 @@ void traverse(SplAstNode *current) {
     case SplAstNodeType::SPL_FUNDEC: {
         // FunDec -> ID LP VarList RP
         // FunDec -> ID LP RP
-        int ret = symbols.install_symbol(latest_function);
+        int ret = symbols.install_symbol(latest_function, true);
         if (ret != SplSymbolTable::SPL_SYM_INSTALL_OK) {
             if (ret == SplSymbolTable::SPL_SYM_INSTALL_REDEF_FUNC) {
                 report_semantic_error(4, current);
@@ -781,6 +783,14 @@ void traverse(SplAstNode *current) {
 #endif
         }
         break;
+    }
+    case SplAstNodeType::SPL_LP: {
+        if (parent != nullptr && parent->attr.type == SPL_FUNDEC &&
+            parent->children.size() == 4) {
+#if defined(LOCAL_SCOPE)
+            symbols.forward();
+#endif
+        }
     }
     default: {
         break;

@@ -288,41 +288,71 @@ class SplSymbolTable
     }
 };
 
-class SplScope {
+class SplScope;
+
+class SplScopeNode {
   private:
-    std::vector<SplSymbolTable> tables{1};
+    SplScopeNode *parent;
+    std::vector<SplScopeNode> childs;
+    SplSymbolTable table;
+    bool is_varlist;
+    friend class SplScope;
 
   public:
-    void forward() { tables.emplace_back(); }
+    SplScopeNode(SplScopeNode *parent, bool is_varlist)
+        : parent(parent), is_varlist(is_varlist) {}
+};
+
+class SplScope {
+  private:
+    SplScopeNode root{nullptr, false};
+    SplScopeNode *now{&root};
+
+  public:
+    void forward(bool is_varlist = false) {
+        now->childs.emplace_back(now, is_varlist);
+        now = &(now->childs.back());
+    }
     void back() {
 #if defined(SPL_SEMANTIC_ANALYZER_VERBOSE)
         std::cout << "pop: " << std::endl;
         print();
 #endif
-        tables.pop_back();
+        if (now->is_varlist) {
+            now = now->parent;
+        }
+        now = now->parent;
     }
-    int install_symbol(std::shared_ptr<SplSymbol> sym) {
-        auto &st = tables.back();
-        auto it = st.find(sym->name);
-        return st.install_symbol(sym);
+    int install_symbol(std::shared_ptr<SplSymbol> sym, bool is_func = false) {
+        return is_func ? now->parent->table.install_symbol(sym) : now->table.install_symbol(sym);
     }
     std::optional<std::shared_ptr<SplSymbol>> lookup(const std::string &name) {
-        for (auto it = tables.crbegin(); it != tables.crend(); it++) {
-            auto &table = *it;
+        auto *cur = now;
+        while (cur != nullptr) {
+            auto &table = cur->table;
             auto table_it = table.find(name);
             if (table_it != table.end()) {
                 return (*table_it).second;
             }
+            cur = cur->parent;
         }
         return std::nullopt;
     }
     void print() {
         std::cout << "Scope:" << std::endl;
-        for (int i = 0; i < tables.size(); i++) {
-            std::cout << "Layer " << i << std::endl;
-            for (auto it = tables[i].cbegin(); it != tables[i].cend(); ++it) {
-                it->second->print();
+        print_impl(&root, 0);
+    }
+
+    void print_impl(SplScopeNode *cur, int depth) {
+        std::cout << "----------------- " << depth << std::endl;
+        for (auto &v : cur->table) {
+            for (int i = 0; i < depth; i++) {
+                std::cout << "   ";
             }
+            std::cout << "| " << v.first << std::endl;
+        }
+        for (auto &v : cur->childs) {
+            print_impl(&v, depth + 1);
         }
     }
 };

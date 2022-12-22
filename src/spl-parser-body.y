@@ -129,7 +129,7 @@ Stmt:
     | IF LP Exp RP Stmt  %prec IF_WITHOUT_ELSE  { $$ = new SplAstNode("Stmt", {SPL_STMT, nullptr}, SplLoc(&@$), $1, $2, $3, $4, $5); }
     | IF LP Exp RP Stmt ELSE Stmt  { $$ = new SplAstNode("Stmt", {SPL_STMT, nullptr}, SplLoc(&@$), $1, $2, $3, $4, $5, $6, $7); }
     | WHILE LP Exp RP Stmt  { $$ = new SplAstNode("Stmt", {SPL_STMT, nullptr}, SplLoc(&@$), $1, $2, $3, $4, $5); }
-    | FOR LP Exp SEMI Exp SEMI Exp RP Stmt { $$ = new SplAstNode("Stmt", {SPL_NONTERMINAL, nullptr}, SplLoc(&@$), $1, $2, $3, $4, $5, $6, $7, $8, $9); }
+/*    | FOR LP Exp SEMI Exp SEMI Exp RP Stmt { $$ = new SplAstNode("Stmt", {SPL_NONTERMINAL, nullptr}, SplLoc(&@$), $1, $2, $3, $4, $5, $6, $7, $8, $9); }*/
     | ELSE error Stmt { printf("Error type B at Line %d: incorrect else\n", yylloc.first_line); }
     | RETURN Exp error { printf("Error type B at Line %d: missing semi at the end of return statement\n", yylloc.first_line); }
     | Exp error { printf("Error type B at Line %d: missing semi at the end of statement of expression\n", yylloc.first_line); }
