@@ -60,3 +60,18 @@ apply `splc` parser on all `.spl` files in specified directory
 ```
 
 ## todo
+
+- [] exp
+  - [] struct addressing
+  - [] array addressing
+  - [] arithmetic operation
+  - [] boolean operation
+    - [] short circuit
+  - [] function call
+- [] if stmt
+  - [] if else stmt
+- [] while stmt
+- [] function definition
+- [] variable declaration
+  - [] variable definition
+- [] `read` and `write` (pre-defined function)
