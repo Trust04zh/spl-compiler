@@ -3,7 +3,6 @@
 #include <stack>
 #include <string>
 
-#define LOCAL_SCOPE
 #include "spl-ast.hpp"
 #include "spl-parser-module.cpp"
 #include "spl-semantic-error.hpp"
@@ -62,12 +61,11 @@ void traverse(SplAstNode *current);
 void spl_semantic_analysis() {
     prog->completeParent();
     traverse(prog);
-    symbols.print();
     return;
 }
 
 void traverse(SplAstNode *current) {
-    auto *parent = current->parent;
+    auto parent = current->parent;
     for (auto child : current->children) {
         traverse(child);
     }
@@ -766,6 +764,13 @@ void traverse(SplAstNode *current) {
         if (parent != nullptr &&
             parent->attr.type == SplAstNodeType::SPL_STRUCTSPECIFIER) {
             // StructSpecifier -> STRUCT ID *LC* DefList RC
+        } else if (parent != nullptr && parent->parent != nullptr &&
+                   parent->parent->attr.type == SplAstNodeType::SPL_EXTDEF &&
+                   parent->parent->children.size() == 3 &&
+                   parent->parent->children[1]->attr.type ==
+                       SplAstNodeType::SPL_FUNDEC) {
+            // ExtDef -> Specifier FunDec CompSt
+            // CompSt -> *LC* DefList StmtList RC
         } else {
 #if defined(LOCAL_SCOPE)
             symbols.forward();
@@ -785,12 +790,12 @@ void traverse(SplAstNode *current) {
         break;
     }
     case SplAstNodeType::SPL_LP: {
-        if (parent != nullptr && parent->attr.type == SPL_FUNDEC &&
-            parent->children.size() == 4) {
+        if (parent != nullptr && parent->attr.type == SPL_FUNDEC) {
 #if defined(LOCAL_SCOPE)
             symbols.forward();
 #endif
         }
+        break;
     }
     default: {
         break;
