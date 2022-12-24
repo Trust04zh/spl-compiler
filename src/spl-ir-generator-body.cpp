@@ -1,9 +1,10 @@
 #include "spl-semantic-analyzer-module.cpp"
+#include <iostream>
 #include <sstream>
 
 std::stringstream out;
 
-void traverse_ir(SplAstNode *now);
+void traverse_ir(const SplAstNode *now);
 
 void generate_ir() { 
     traverse_ir(prog);
@@ -22,7 +23,7 @@ void insert_func(const SplAstNode *now) {
         now = now->children[2]; // VarList
         while (true) {
             // insert
-            if (now->children.size == 1) break;
+            if (now->children.size() == 1) break;
         }
     }
 }
