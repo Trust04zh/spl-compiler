@@ -1,6 +1,7 @@
 #ifndef SPL_AST_HPP
 #define SPL_AST_HPP
 
+#include "spl-ir.hpp"
 #include <cassert>
 #include <cstdio>
 #include <iostream>
@@ -68,6 +69,7 @@ struct SplValType : public SplVal {
 struct SplValExp : public SplVal {
     std::shared_ptr<SplExpExactType> type;
     bool is_lvalue;
+    SplIrVariableRepr ir_var;
     SplValExp(const std::shared_ptr<SplExpExactType> &type, bool is_lvalue)
         : SplVal{"Exp"}, type(type), is_lvalue(is_lvalue) {}
 };
