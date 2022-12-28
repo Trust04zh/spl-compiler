@@ -180,7 +180,7 @@ struct SplAttr {
         : type(type), value(std::move(value)) {}
     SplAttr(SplAttr &&rhs) : type(rhs.type) { value.swap(rhs.value); }
 
-    template <typename T> T &val() { return static_cast<T &>(*value); }
+    template <typename T> T &val() const { return static_cast<T &>(*value); }
 };
 
 enum SplExpType {
@@ -236,6 +236,7 @@ struct SplExpExactType {
     bool operator!=(const SplExpExactType &rhs) const {
         return !(*this == rhs);
     }
+    bool is_array_or_struct() const { return is_array() || exp_type == SPL_EXP_STRUCT; }
 };
 
 enum SplSymbolType { SPL_SYM_VAR, SPL_SYM_STRUCT, SPL_SYM_FUNC };
@@ -292,24 +293,24 @@ class SplSymbolTable
 
 class SplScope {
   private:
-    std::vector<SplSymbolTable> tables{1};
+    std::vector<SplSymbolTable> tables_{1};
 
   public:
-    void forward() { tables.emplace_back(); }
+    const auto &table() const { return tables_.back(); }
+
+    void forward() { tables_.emplace_back(); }
     void back() {
 #if defined(SPL_SEMANTIC_ANALYZER_VERBOSE)
         std::cout << "pop: " << std::endl;
         print();
 #endif
-        tables.pop_back();
+        tables_.pop_back();
     }
     int install_symbol(std::shared_ptr<SplSymbol> sym) {
-        auto &st = tables.back();
-        auto it = st.find(sym->name);
-        return st.install_symbol(sym);
+        return tables_.back().install_symbol(sym);
     }
     std::optional<std::shared_ptr<SplSymbol>> lookup(const std::string &name) {
-        for (auto it = tables.crbegin(); it != tables.crend(); it++) {
+        for (auto it = tables_.crbegin(); it != tables_.crend(); it++) {
             auto &table = *it;
             auto table_it = table.find(name);
             if (table_it != table.end()) {
@@ -320,9 +321,9 @@ class SplScope {
     }
     void print() {
         std::cout << "Scope:" << std::endl;
-        for (int i = 0; i < tables.size(); i++) {
+        for (int i = 0; i < tables_.size(); i++) {
             std::cout << "Layer " << i << std::endl;
-            for (auto it = tables[i].cbegin(); it != tables[i].cend(); ++it) {
+            for (auto it = tables_[i].cbegin(); it != tables_[i].cend(); ++it) {
                 it->second->print();
             }
         }
