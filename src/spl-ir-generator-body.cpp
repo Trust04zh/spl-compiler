@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <iostream>
 #include <sstream>
+#include <list>
 #include <unordered_map>
 
 extern SplAstNode *prog;
@@ -308,7 +309,7 @@ void collect_ir_by_postorder(SplAstNode *root) {
 
 void collect_ir_by_postorder(SplAstNode *now, SplAstNode *root) {
     // collect ir to root node by post order
-    std::vector<std::unique_ptr<SplIrInstruction>> tmp;
+    std::list<std::unique_ptr<SplIrInstruction>> tmp;
     tmp.insert(tmp.end(), std::make_move_iterator(root->ir.begin()),
                std::make_move_iterator(root->ir.end()));
     root->ir.clear();

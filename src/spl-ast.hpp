@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <variant>
 #include <vector>
+#include <list>
 
 // iterators keeps valid after unordered_map being modified, except for iterator
 // to the modified element
@@ -414,8 +415,7 @@ struct SplAstNode {
     SplAttr attr;
     SplLoc loc;
     bool error_propagated{false};
-    // std::vector<SplIrInstruction> ir;
-    std::vector<std::unique_ptr<SplIrInstruction>> ir;
+    std::list<std::unique_ptr<SplIrInstruction>> ir;
 
     SplAstNode(const char *name, SplAttr &&attr, const SplLoc &loc)
         : name(name), attr(std::move(attr)), loc(loc) {}
