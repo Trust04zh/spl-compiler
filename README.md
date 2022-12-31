@@ -66,14 +66,14 @@ apply `splc` parser on all `.spl` files in specified directory
 - [] exp
   - [] struct addressing
   - [] array addressing
-  - [1] arithmetic operation
+  - [x] arithmetic operation
   - [] boolean operation
     - [] short circuit
-  - [1] function call
+  - [x] function call
 - [] if stmt
   - [] if else stmt
 - [] while stmt
-- [1] function definition
-- [1] variable declaration
-  - [1] variable definition
+- [x] function definition
+- [x] variable declaration
+  - [x] variable definition
 - [] `read` and `write` (pre-defined function)

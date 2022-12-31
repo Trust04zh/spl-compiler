@@ -84,7 +84,7 @@ class SplIrFunctionInstruction : public SplIrInstruction {
         }
     }
     void print(std::stringstream &out) override {
-        out << "FUNCTION " << func.repr << std::endl;
+        out << "FUNCTION " << func.repr << " :" << std::endl;
     }
 };
 
@@ -325,7 +325,8 @@ class SplIrDecInstruction : public SplIrInstruction {
   public:
     SplIrOperand variable;
     int size;
-    SplIrDecInstruction(SplIrOperand &&variable, int size) : variable(std::move(variable)), size(size) {
+    SplIrDecInstruction(SplIrOperand &&variable, int size)
+        : variable(std::move(variable)), size(size) {
         if (!this->variable.is_r_value_variable()) {
             throw std::runtime_error("Dec instruction must have "
                                      "r-value variable source operand");
@@ -424,7 +425,11 @@ class SplIrAutoIncrementHelper {
   public:
     SplIrAutoIncrementHelper(std::string prefix, int start = 0)
         : prefix(prefix), counter(start) {}
-    std::string next() { return prefix + std::to_string(counter); }
+    std::string next() {
+        std::string str = prefix + std::to_string(counter);
+        counter++;
+        return str;
+    }
 };
 
 #endif /* SPL_IR_HPP */
