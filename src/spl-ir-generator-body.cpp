@@ -82,6 +82,7 @@ void traverse_exp(SplAstNode *now) {
     if (now->attr.type != SPL_EXP) {
         return;
     }
+
     if (now->children.size() == 1) {
         switch (now->children[0]->attr.type) {
         case SplAstNodeType::SPL_ID: {
@@ -116,22 +117,141 @@ void traverse_exp(SplAstNode *now) {
                         &child_ir_var =
                             now->children[1]->attr.val<SplValExp>().ir_var;
             now->attr.val<SplValExp>().ir_var = ir_var;
-            // SplIrOperand dst(SplIrOperand::R_VALUE_TEMPORARY, ir_var);
-            // SplIrOperand src1(SplIrOperand::L_VALUE_CONSTANT, "#0");
-            // SplIrOperand src2(ir_name_2_operand_type(child_ir_var),
-            //                   child_ir_var);
-            // SplIrAssignMinusInstruction ins(std::move(dst), std::move(src1),
-            // std::move(src2));
-            auto ins_ptr = std::make_unique<SplIrAssignMinusInstruction>(
+            now->ir.emplace_back(std::make_unique<SplIrAssignMinusInstruction>(
                 SplIrOperand(SplIrOperand::R_VALUE_TEMPORARY, ir_var),
                 SplIrOperand(SplIrOperand::L_VALUE_CONSTANT, "#0"),
                 SplIrOperand(ir_name_2_operand_type(child_ir_var),
-                             child_ir_var));
-            now->ir.push_back(std::move(ins_ptr));
+                             child_ir_var)));
+            break;
+        }
+        }
+    } else if (now->children.size() == 3) {
+        switch (now->children[1]->attr.type) {
+        case SplAstNodeType::SPL_ASSIGN: {
+            // Exp -> Exp ASSIGN Exp
+            std::string &dst_ir_var =
+                            now->children[0]->attr.val<SplValExp>().ir_var,
+                        &src_ir_var =
+                            now->children[2]->attr.val<SplValExp>().ir_var;
+            now->attr.val<SplValExp>().ir_var = dst_ir_var;
+            now->ir.emplace_back(std::make_unique<SplIrAssignInstruction>(
+                SplIrOperand(ir_name_2_operand_type(dst_ir_var), dst_ir_var),
+                SplIrOperand(ir_name_2_operand_type(src_ir_var), src_ir_var)));
+            break;
+        }
+        case SplAstNodeType::SPL_AND: {
+            // Exp -> Exp AND Exp
+            // TODO: boolean operation
+            break;
+        }
+        case SplAstNodeType::SPL_OR: {
+            // Exp -> Exp OR Exp
+            // TODO: boolean operation
+            break;
+        }
+        case SplAstNodeType::SPL_LT:
+        case SplAstNodeType::SPL_LE:
+        case SplAstNodeType::SPL_GT:
+        case SplAstNodeType::SPL_GE:
+        case SplAstNodeType::SPL_EQ:
+        case SplAstNodeType::SPL_NE: {
+            // Exp -> Exp LT Exp
+            // Exp -> Exp LE Exp
+            // Exp -> Exp GT Exp
+            // Exp -> Exp GE Exp
+            // Exp -> Exp EQ Exp
+            // Exp -> Exp NE Exp
+            // TODO: IF GOTO instruction
+            break;
+        }
+        case SplAstNodeType::SPL_PLUS: {
+            // Exp -> Exp PLUS Exp
+            std::string ir_var = tmp_counter.next(),
+                        &lhs_ir_var =
+                            now->children[0]->attr.val<SplValExp>().ir_var,
+                        &rhs_ir_var =
+                            now->children[2]->attr.val<SplValExp>().ir_var;
+            now->attr.val<SplValExp>().ir_var = ir_var;
+            now->ir.emplace_back(std::make_unique<SplIrAssignAddInstruction>(
+                SplIrOperand(SplIrOperand::R_VALUE_TEMPORARY, ir_var),
+                SplIrOperand(ir_name_2_operand_type(lhs_ir_var), lhs_ir_var),
+                SplIrOperand(ir_name_2_operand_type(rhs_ir_var), rhs_ir_var)));
+            break;
+        }
+        case SplAstNodeType::SPL_MINUS: {
+            // Exp -> Exp MINUS Exp
+            std::string ir_var = tmp_counter.next(),
+                        &lhs_ir_var =
+                            now->children[0]->attr.val<SplValExp>().ir_var,
+                        &rhs_ir_var =
+                            now->children[2]->attr.val<SplValExp>().ir_var;
+            now->attr.val<SplValExp>().ir_var = ir_var;
+            now->ir.emplace_back(std::make_unique<SplIrAssignMinusInstruction>(
+                SplIrOperand(SplIrOperand::R_VALUE_TEMPORARY, ir_var),
+                SplIrOperand(ir_name_2_operand_type(lhs_ir_var), lhs_ir_var),
+                SplIrOperand(ir_name_2_operand_type(rhs_ir_var), rhs_ir_var)));
+            break;
+        }
+        case SplAstNodeType::SPL_MUL: {
+            // Exp -> Exp MUL Exp
+            std::string ir_var = tmp_counter.next(),
+                        &lhs_ir_var =
+                            now->children[0]->attr.val<SplValExp>().ir_var,
+                        &rhs_ir_var =
+                            now->children[2]->attr.val<SplValExp>().ir_var;
+            now->attr.val<SplValExp>().ir_var = ir_var;
+            now->ir.emplace_back(std::make_unique<SplIrAssignMulInstruction>(
+                SplIrOperand(SplIrOperand::R_VALUE_TEMPORARY, ir_var),
+                SplIrOperand(ir_name_2_operand_type(lhs_ir_var), lhs_ir_var),
+                SplIrOperand(ir_name_2_operand_type(rhs_ir_var), rhs_ir_var)));
+            break;
+        }
+        case SplAstNodeType::SPL_DIV: {
+            // Exp -> Exp DIV Exp
+            std::string ir_var = tmp_counter.next(),
+                        &lhs_ir_var =
+                            now->children[0]->attr.val<SplValExp>().ir_var,
+                        &rhs_ir_var =
+                            now->children[2]->attr.val<SplValExp>().ir_var;
+            now->attr.val<SplValExp>().ir_var = ir_var;
+            now->ir.emplace_back(std::make_unique<SplIrAssignDivInstruction>(
+                SplIrOperand(SplIrOperand::R_VALUE_TEMPORARY, ir_var),
+                SplIrOperand(ir_name_2_operand_type(lhs_ir_var), lhs_ir_var),
+                SplIrOperand(ir_name_2_operand_type(rhs_ir_var), rhs_ir_var)));
+            break;
+        }
+        case SplAstNodeType::SPL_EXP: {
+            // Exp -> LP Exp RP
+            std::string &ir_var = now->children[1]->attr.val<SplValExp>().ir_var;
+            now->attr.val<SplValExp>().ir_var = ir_var;
+            break;
+        }
+        case SplAstNodeType::SPL_DOT: {
+            // Exp -> Exp DOT ID
+            // TODO: access struct member
+            break;
+        }
+        case SplAstNodeType::SPL_LP: {
+            // Exp -> ID LP RP
+            // TODO: call without args
+            break;
+        }
+        }
+    } else if (now->children.size() == 4) {
+        switch (now->children[1]->attr.type) {
+        case SplAstNodeType::SPL_LP: {
+            // Exp -> ID LP Args RP
+            // TODO: call with args
+            break;
+        }
+        case SplAstNodeType::SPL_LB: {
+            // Exp -> Exp LB Exp RB
+            // TODO: array access
             break;
         }
         }
     }
+
     for (auto &child : now->children) {
         traverse_exp(child);
     }
