@@ -61,17 +61,19 @@ apply `splc` parser on all `.spl` files in specified directory
 
 ## todo
 
+`[1]` indicates not verified
+
 - [] exp
   - [] struct addressing
   - [] array addressing
-  - [] arithmetic operation
+  - [1] arithmetic operation
   - [] boolean operation
     - [] short circuit
-  - [] function call
+  - [1] function call
 - [] if stmt
   - [] if else stmt
 - [] while stmt
-- [] function definition
-- [] variable declaration
-  - [] variable definition
+- [1] function definition
+- [1] variable declaration
+  - [1] variable definition
 - [] `read` and `write` (pre-defined function)
