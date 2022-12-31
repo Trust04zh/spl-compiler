@@ -397,7 +397,7 @@ class SplIrReadInstruction : public SplIrInstruction {
         }
     }
     void print(std::stringstream &out) override {
-        out << dst.repr << " := READ" << std::endl;
+        out << "READ " << dst.repr << std::endl;
     }
 };
 

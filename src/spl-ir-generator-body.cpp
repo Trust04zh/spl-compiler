@@ -1,8 +1,8 @@
 #include "spl-semantic-analyzer-module.cpp"
 #include <algorithm>
 #include <iostream>
-#include <sstream>
 #include <list>
+#include <sstream>
 #include <unordered_map>
 
 extern SplAstNode *prog;
@@ -82,7 +82,6 @@ void handle_args(SplAstNode *now) {
         handle_exp(exp);
     }
 
-    
     collect_ir_by_postorder(now);
 
     // set args
@@ -273,10 +272,16 @@ void traverse_exp(SplAstNode *now) {
             // call without args
             std::string ir_var = tmp_counter.next();
             now->attr.val<SplValExp>().ir_var = ir_var;
-            now->ir.emplace_back(std::make_unique<SplIrCallInstruction>(
-                SplIrOperand(SplIrOperand::R_VALUE_TEMPORARY, ir_var),
-                SplIrOperand(SplIrOperand::FUNCTION,
-                             now->children[0]->attr.val<SplValId>().val_id)));
+            std::string func_name =
+                now->children[0]->attr.val<SplValId>().val_id;
+            if (func_name == "read") {
+                now->ir.emplace_back(std::make_unique<SplIrReadInstruction>(
+                    SplIrOperand(SplIrOperand::R_VALUE_TEMPORARY, ir_var)));
+            } else {
+                now->ir.emplace_back(std::make_unique<SplIrCallInstruction>(
+                    SplIrOperand(SplIrOperand::R_VALUE_TEMPORARY, ir_var),
+                    SplIrOperand(SplIrOperand::FUNCTION, func_name)));
+            }
             break;
         }
         }
@@ -288,10 +293,20 @@ void traverse_exp(SplAstNode *now) {
             handle_args(now);
             std::string ir_var = tmp_counter.next();
             now->attr.val<SplValExp>().ir_var = ir_var;
-            now->ir.emplace_back(std::make_unique<SplIrCallInstruction>(
-                SplIrOperand(SplIrOperand::R_VALUE_TEMPORARY, ir_var),
-                SplIrOperand(SplIrOperand::FUNCTION,
-                             now->children[0]->attr.val<SplValId>().val_id)));
+            std::string func_name =
+                now->children[0]->attr.val<SplValId>().val_id;
+            if (func_name == "write") {
+                auto &ins = now->ir.back();
+                std::unique_ptr<SplIrArgInstruction> arg_ins(static_cast<SplIrArgInstruction*>(ins.release()));
+                ir_var = arg_ins->arg.repr;
+                now->ir.pop_back();
+                now->ir.emplace_back(std::make_unique<SplIrWriteInstruction>(
+                    SplIrOperand(SplIrOperand::R_VALUE_TEMPORARY, ir_var)));
+            } else {
+                now->ir.emplace_back(std::make_unique<SplIrCallInstruction>(
+                    SplIrOperand(SplIrOperand::R_VALUE_TEMPORARY, ir_var),
+                    SplIrOperand(SplIrOperand::FUNCTION, func_name)));
+            }
             break;
         }
         case SplAstNodeType::SPL_LB: {

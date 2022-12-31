@@ -61,8 +61,6 @@ apply `splc` parser on all `.spl` files in specified directory
 
 ## todo
 
-`[1]` indicates not verified
-
 - [] exp
   - [] struct addressing
   - [] array addressing
@@ -76,4 +74,4 @@ apply `splc` parser on all `.spl` files in specified directory
 - [x] function definition
 - [x] variable declaration
   - [x] variable definition
-- [] `read` and `write` (pre-defined function)
+- [x] `read` and `write` (pre-defined function)
