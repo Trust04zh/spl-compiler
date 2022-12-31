@@ -424,7 +424,7 @@ class SplIrAutoIncrementHelper {
   public:
     SplIrAutoIncrementHelper(std::string prefix, int start = 0)
         : prefix(prefix), counter(start) {}
-    std::string get() { return prefix + std::to_string(counter); }
+    std::string next() { return prefix + std::to_string(counter); }
 };
 
 #endif /* SPL_IR_HPP */
