@@ -261,7 +261,8 @@ void traverse_exp(SplAstNode *now) {
             now->attr.val<SplValExp>().ir_var = ir_var;
             now->ir.emplace_back(std::make_unique<SplIrCallInstruction>(
                 SplIrOperand(SplIrOperand::R_VALUE_TEMPORARY, ir_var),
-                now->children[0]->attr.val<SplValId>().val_id));
+                SplIrOperand(SplIrOperand::FUNCTION,
+                             now->children[0]->attr.val<SplValId>().val_id)));
             break;
         }
         }
@@ -275,7 +276,8 @@ void traverse_exp(SplAstNode *now) {
             now->attr.val<SplValExp>().ir_var = ir_var;
             now->ir.emplace_back(std::make_unique<SplIrCallInstruction>(
                 SplIrOperand(SplIrOperand::R_VALUE_TEMPORARY, ir_var),
-                now->children[0]->attr.val<SplValId>().val_id));
+                SplIrOperand(SplIrOperand::FUNCTION,
+                             now->children[0]->attr.val<SplValId>().val_id)));
             break;
         }
         case SplAstNodeType::SPL_LB: {
