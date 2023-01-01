@@ -85,23 +85,23 @@ void handle_args(SplAstNode *now) {
     collect_ir_by_postorder(now);
 
     // set args
+    std::list<std::unique_ptr<SplIrInstruction>> args_ir_tmp;
     {
         auto args = now->children[2];
         while (args->children.size() == 3) {
             auto &exp = args->children[0];
             auto &ir_var = exp->attr.val<SplValExp>().ir_var.var;
-            now->ir.emplace_back(std::make_unique<SplIrArgInstruction>(
+            args_ir_tmp.emplace_front(std::make_unique<SplIrArgInstruction>(
                 SplIrOperand(ir_name_2_operand_type(ir_var), ir_var)));
             args = args->children[2];
         }
         auto &exp = args->children[0];
         auto &ir_var = exp->attr.val<SplValExp>().ir_var.var;
-        now->ir.emplace_back(std::make_unique<SplIrArgInstruction>(
+        args_ir_tmp.emplace_front(std::make_unique<SplIrArgInstruction>(
             SplIrOperand(ir_name_2_operand_type(ir_var), ir_var)));
     }
 
-    // reverse ir
-    std::reverse(now->ir.begin(), now->ir.end());
+    now->ir.splice(now->ir.end(), args_ir_tmp);
 }
 
 void handle_exp(SplAstNode *now) {
@@ -109,7 +109,21 @@ void handle_exp(SplAstNode *now) {
     collect_ir_by_postorder(now);
 }
 
+std::string deref(SplAstNode *now) {
+    auto &ir_var = now->attr.val<SplValExp>().ir_var;
+    if (!ir_var.is_addr)
+        return ir_var.var;
+    std::string tmp = tmp_counter.next();
+    now->ir.emplace_back(std::make_unique<SplIrAssignDerefSrcInstruction>(
+        SplIrOperand(SplIrOperand::L_VALUE_TEMPORARY, tmp),
+        SplIrOperand(ir_name_2_operand_type(ir_var.var), ir_var.var)));
+    return tmp;
+}
+
 void traverse_exp(SplAstNode *now) {
+    // Caution: deref before use exp
+    // Caution: deref before use exp
+    // Caution: deref before use exp
     if (now->attr.type != SplAstNodeType::SPL_EXP) {
         return;
     }
@@ -149,13 +163,13 @@ void traverse_exp(SplAstNode *now) {
         case SplAstNodeType::SPL_MINUS: {
             // Exp -> MINUS Exp
             std::string ir_var = tmp_counter.next();
-            auto &child_ir_var = now->children[1]->attr.val<SplValExp>().ir_var;
-            now->attr.val<SplValExp>().ir_var = {ir_var, child_ir_var.is_addr};
+            std::string child_ir_var = deref(now->children[1]);
+            now->attr.val<SplValExp>().ir_var = {ir_var};
             now->ir.emplace_back(std::make_unique<SplIrAssignMinusInstruction>(
                 SplIrOperand(SplIrOperand::L_VALUE_TEMPORARY, ir_var),
                 SplIrOperand(SplIrOperand::R_VALUE_CONSTANT, "#0"),
-                SplIrOperand(ir_name_2_operand_type(child_ir_var.var),
-                             child_ir_var.var)));
+                SplIrOperand(ir_name_2_operand_type(child_ir_var),
+                             child_ir_var)));
             break;
         }
         }
@@ -163,33 +177,28 @@ void traverse_exp(SplAstNode *now) {
         switch (now->children[1]->attr.type) {
         case SplAstNodeType::SPL_ASSIGN: {
             // Exp -> Exp ASSIGN Exp
-            auto &dst_ir_var = now->children[0]->attr.val<SplValExp>().ir_var,
-                 &src_ir_var = now->children[2]->attr.val<SplValExp>().ir_var;
+            auto &dst_ir_var = now->children[0]->attr.val<SplValExp>().ir_var;
+            auto &src_ir_var = now->children[2]->attr.val<SplValExp>().ir_var;
             now->attr.val<SplValExp>().ir_var = dst_ir_var;
 
-            SplIrOperand src_operand(ir_name_2_operand_type(src_ir_var.var),
-                                     src_ir_var.var);
             SplIrOperand dst_operand(ir_name_2_operand_type(dst_ir_var.var),
                                      dst_ir_var.var);
-            if (dst_ir_var.is_addr) {     // addr
-                if (src_ir_var.is_addr) { // addr = addr
-                    std::string ir_var_tmp = tmp_counter.next();
-                    SplIrOperand tmp_operand(SplIrOperand::L_VALUE_TEMPORARY,
-                                             ir_var_tmp);
-                    now->ir.emplace_back(
-                        std::make_unique<SplIrAssignDerefSrcInstruction>(
-                                SplIrOperand{tmp_operand}, SplIrOperand{src_operand}));
-                    now->ir.emplace_back(
-                        std::make_unique<SplIrAssignDerefDstInstruction>(
-                            std::move(dst_operand), std::move(tmp_operand)));
-                } else { // addr = var
-                    now->ir.emplace_back(
-                        std::make_unique<SplIrAssignDerefDstInstruction>(
-                            std::move(dst_operand), std::move(src_operand)));
-                }
-            } else if (src_ir_var.is_addr) { // var = addr
+
+            if (!dst_ir_var.is_addr &&
+                src_ir_var.is_addr) { // var = addr, optimization
                 now->ir.emplace_back(
                     std::make_unique<SplIrAssignDerefSrcInstruction>(
+                        std::move(dst_operand),
+                        SplIrOperand(ir_name_2_operand_type(src_ir_var.var),
+                                     src_ir_var.var)));
+                break;
+            }
+
+            std::string src = deref(now->children[2]);
+            SplIrOperand src_operand(ir_name_2_operand_type(src), src);
+            if (dst_ir_var.is_addr) { // addr = var
+                now->ir.emplace_back(
+                    std::make_unique<SplIrAssignDerefDstInstruction>(
                         std::move(dst_operand), std::move(src_operand)));
             } else { // var = var
                 now->ir.emplace_back(std::make_unique<SplIrAssignInstruction>(
@@ -200,11 +209,13 @@ void traverse_exp(SplAstNode *now) {
         case SplAstNodeType::SPL_AND: {
             // Exp -> Exp AND Exp
             // TODO: boolean operation
+            std::cout << "AND" << std::endl;
             break;
         }
         case SplAstNodeType::SPL_OR: {
             // Exp -> Exp OR Exp
             // TODO: boolean operation
+            std::cout << "OR" << std::endl;
             break;
         }
         case SplAstNodeType::SPL_LT:
@@ -213,6 +224,7 @@ void traverse_exp(SplAstNode *now) {
         case SplAstNodeType::SPL_GE:
         case SplAstNodeType::SPL_EQ:
         case SplAstNodeType::SPL_NE: {
+            std::cout << "EQ" << std::endl;
             // Exp -> Exp LT Exp
             // Exp -> Exp LE Exp
             // Exp -> Exp GT Exp
@@ -224,62 +236,50 @@ void traverse_exp(SplAstNode *now) {
         }
         case SplAstNodeType::SPL_PLUS: {
             // Exp -> Exp PLUS Exp
-            std::string ir_var = tmp_counter.next();
-            auto &lhs_ir_var = now->children[0]->attr.val<SplValExp>().ir_var,
-                 &rhs_ir_var = now->children[2]->attr.val<SplValExp>().ir_var;
-            now->attr.val<SplValExp>().ir_var = {
-                ir_var, lhs_ir_var.is_addr || rhs_ir_var.is_addr};
+            std::string ir_var = tmp_counter.next(),
+                        lhs_ir_var = deref(now->children[0]),
+                        rhs_ir_var = deref(now->children[2]);
+            now->attr.val<SplValExp>().ir_var = {ir_var};
             now->ir.emplace_back(std::make_unique<SplIrAssignAddInstruction>(
                 SplIrOperand(SplIrOperand::L_VALUE_TEMPORARY, ir_var),
-                SplIrOperand(ir_name_2_operand_type(lhs_ir_var.var),
-                             lhs_ir_var.var),
-                SplIrOperand(ir_name_2_operand_type(rhs_ir_var.var),
-                             rhs_ir_var.var)));
+                SplIrOperand(ir_name_2_operand_type(lhs_ir_var), lhs_ir_var),
+                SplIrOperand(ir_name_2_operand_type(rhs_ir_var), rhs_ir_var)));
             break;
         }
         case SplAstNodeType::SPL_MINUS: {
             // Exp -> Exp MINUS Exp
-            std::string ir_var = tmp_counter.next();
-            auto &lhs_ir_var = now->children[0]->attr.val<SplValExp>().ir_var,
-                 &rhs_ir_var = now->children[2]->attr.val<SplValExp>().ir_var;
-            now->attr.val<SplValExp>().ir_var = {
-                ir_var, lhs_ir_var.is_addr || rhs_ir_var.is_addr};
+            std::string ir_var = tmp_counter.next(),
+                        lhs_ir_var = deref(now->children[0]),
+                        rhs_ir_var = deref(now->children[2]);
+            now->attr.val<SplValExp>().ir_var = {ir_var};
             now->ir.emplace_back(std::make_unique<SplIrAssignMinusInstruction>(
                 SplIrOperand(SplIrOperand::L_VALUE_TEMPORARY, ir_var),
-                SplIrOperand(ir_name_2_operand_type(lhs_ir_var.var),
-                             lhs_ir_var.var),
-                SplIrOperand(ir_name_2_operand_type(rhs_ir_var.var),
-                             rhs_ir_var.var)));
+                SplIrOperand(ir_name_2_operand_type(lhs_ir_var), lhs_ir_var),
+                SplIrOperand(ir_name_2_operand_type(rhs_ir_var), rhs_ir_var)));
             break;
         }
         case SplAstNodeType::SPL_MUL: {
             // Exp -> Exp MUL Exp
-            std::string ir_var = tmp_counter.next();
-            auto &lhs_ir_var = now->children[0]->attr.val<SplValExp>().ir_var,
-                 &rhs_ir_var = now->children[2]->attr.val<SplValExp>().ir_var;
-            now->attr.val<SplValExp>().ir_var = {
-                ir_var, lhs_ir_var.is_addr || rhs_ir_var.is_addr};
+            std::string ir_var = tmp_counter.next(),
+                        lhs_ir_var = deref(now->children[0]),
+                        rhs_ir_var = deref(now->children[2]);
+            now->attr.val<SplValExp>().ir_var = {ir_var};
             now->ir.emplace_back(std::make_unique<SplIrAssignMulInstruction>(
                 SplIrOperand(SplIrOperand::L_VALUE_TEMPORARY, ir_var),
-                SplIrOperand(ir_name_2_operand_type(lhs_ir_var.var),
-                             lhs_ir_var.var),
-                SplIrOperand(ir_name_2_operand_type(rhs_ir_var.var),
-                             rhs_ir_var.var)));
+                SplIrOperand(ir_name_2_operand_type(lhs_ir_var), lhs_ir_var),
+                SplIrOperand(ir_name_2_operand_type(rhs_ir_var), rhs_ir_var)));
             break;
         }
         case SplAstNodeType::SPL_DIV: {
             // Exp -> Exp DIV Exp
-            std::string ir_var = tmp_counter.next();
-            auto &lhs_ir_var = now->children[0]->attr.val<SplValExp>().ir_var,
-                 &rhs_ir_var = now->children[2]->attr.val<SplValExp>().ir_var;
-            now->attr.val<SplValExp>().ir_var = {
-                ir_var, lhs_ir_var.is_addr || rhs_ir_var.is_addr};
+            std::string ir_var = tmp_counter.next(),
+                        lhs_ir_var = deref(now->children[0]),
+                        rhs_ir_var = deref(now->children[2]);
+            now->attr.val<SplValExp>().ir_var = {ir_var};
             now->ir.emplace_back(std::make_unique<SplIrAssignDivInstruction>(
                 SplIrOperand(SplIrOperand::L_VALUE_TEMPORARY, ir_var),
-                SplIrOperand(ir_name_2_operand_type(lhs_ir_var.var),
-                             lhs_ir_var.var),
-                SplIrOperand(ir_name_2_operand_type(rhs_ir_var.var),
-                             rhs_ir_var.var)));
+                SplIrOperand(ir_name_2_operand_type(lhs_ir_var), lhs_ir_var),
+                SplIrOperand(ir_name_2_operand_type(rhs_ir_var), rhs_ir_var)));
             break;
         }
         case SplAstNodeType::SPL_EXP: {
@@ -293,8 +293,14 @@ void traverse_exp(SplAstNode *now) {
                 now->children[0]->attr.val<SplValExp>().type->struct_name));
             auto offset = struct_sym->get_offset(
                 now->children[2]->attr.val<SplValId>().val_id);
+
             std::string &base_addr_var =
                 now->children[0]->attr.val<SplValExp>().ir_var.var;
+
+            if (offset == 0) {
+                now->attr.val<SplValExp>().ir_var = {base_addr_var, true};
+                break;
+            }
 
             std::string ir_var = tmp_counter.next();
             now->ir.emplace_back(std::make_unique<SplIrAssignAddInstruction>(
@@ -355,8 +361,7 @@ void traverse_exp(SplAstNode *now) {
                                 .type->get_arr_size_for_current_index();
             std::string &base_addr_var =
                 now->children[0]->attr.val<SplValExp>().ir_var.var;
-            std::string &accesser_var =
-                now->children[2]->attr.val<SplValExp>().ir_var.var;
+            std::string accesser_var = deref(now->children[2]);
 
             std::string ir_var_mul = tmp_counter.next();
             std::string ir_var_add = tmp_counter.next();
@@ -385,29 +390,22 @@ void collect_ir_by_postorder(SplAstNode *root) {
 void collect_ir_by_postorder(SplAstNode *now, SplAstNode *root) {
     // collect ir to root node by post order
     std::list<std::unique_ptr<SplIrInstruction>> tmp;
-    tmp.insert(tmp.end(), std::make_move_iterator(root->ir.begin()),
-               std::make_move_iterator(root->ir.end()));
-    root->ir.clear();
+    tmp.splice(tmp.end(), root->ir);
     collect_ir_by_postorder_recurse(now, root);
-    root->ir.insert(root->ir.end(), std::make_move_iterator(tmp.begin()),
-                    std::make_move_iterator(tmp.end()));
-    tmp.clear();
+    root->ir.splice(root->ir.end(), tmp);
 }
 
 void collect_ir_by_postorder_recurse(SplAstNode *now, SplAstNode *root) {
     for (auto &child : now->children) {
         collect_ir_by_postorder_recurse(child, root);
         if (child->ir.size() > 0) {
-            root->ir.insert(root->ir.end(),
-                            std::make_move_iterator(child->ir.begin()),
-                            std::make_move_iterator(child->ir.end()));
-            child->ir.clear();
+            root->ir.splice(root->ir.end(), child->ir);
         }
     }
 }
 
 std::string &handle_vardec(SplAstNode *now) {
-    SplAstNode *tmp = now; // VARDEC
+    SplAstNode *tmp = now;              // VARDEC
     while (tmp->children.size() == 4) { // is array
         tmp = tmp->children[0];
     }
@@ -417,10 +415,15 @@ std::string &handle_vardec(SplAstNode *now) {
     auto symbol =
         std::static_pointer_cast<SplVariableSymbol>(*(symbols.lookup(name)));
     if (symbol->var_type->is_array_or_struct()) {
+        std::string ir_var_tmp = tmp_counter.next();
         now->ir.emplace_back(std::make_unique<SplIrDecInstruction>(
+            SplIrOperand(SplIrOperand::L_VALUE_VARIABLE, ir_var_tmp),
+            symbol->var_type->size));
+
+        now->ir.emplace_back(std::make_unique<SplIrAssignAddressInstruction>(
             SplIrOperand(SplIrOperand::L_VALUE_VARIABLE,
                          spl_var_name_2_ir_var_name[name]),
-            symbol->var_type->size));
+            SplIrOperand(SplIrOperand::L_VALUE_VARIABLE, ir_var_tmp)));
     }
     return name;
 }
@@ -463,11 +466,19 @@ void handle_stmt(SplAstNode *now) {
     }
     case SPL_RETURN: {
         handle_exp(now->children[1]);
-        out << "RETURN ret" << std::endl; // TODO: May optimize in handle_exp
+        std::string ret = deref(now->children[1]);
+        now->ir.emplace_back(std::make_unique<SplIrReturnInstruction>(
+            SplIrOperand(ir_name_2_operand_type(ret), ret)));
         return;
     }
     case SPL_IF: {
+        // IF LP Exp RP Stmt (ELSE Stmt)
+        std::cout << "IF EXP--------------" << std::endl;
         handle_exp(now->children[2]);
+        for (auto &ir : now->children[2]->ir) {
+            ir->print(out);
+        }
+        std::cout << "----------------" << std::endl;
         return;
     }
     case SPL_WHILE: {
