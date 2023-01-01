@@ -67,10 +67,15 @@ struct SplValType : public SplVal {
         : SplVal{"TYPE"}, val_type(val_type) {}
 };
 
+struct IrVarDesc {
+    std::string var;
+    bool is_addr = false;
+};
+
 struct SplValExp : public SplVal {
     std::shared_ptr<SplExpExactType> type;
     bool is_lvalue;
-    std::string ir_var;
+    IrVarDesc ir_var;
     SplValExp(const std::shared_ptr<SplExpExactType> &type, bool is_lvalue)
         : SplVal{"Exp"}, type(type), is_lvalue(is_lvalue) {}
 };
@@ -198,20 +203,24 @@ struct SplExpExactType {
     int array_idx{-1};
     const std::shared_ptr<std::vector<int>> dims; // if is_array()
     int size;
+    int primitive_size; // raw size
 
     explicit SplExpExactType(SplExpType exp_type)
-        : exp_type(exp_type), size{exp_type == SPL_EXP_CHAR ? 1 : 4} {}
+        : exp_type(exp_type), size{exp_type == SPL_EXP_CHAR ? 1 : 4},
+          primitive_size{size} {}
     SplExpExactType(SplExpType exp_type, const std::string &struct_name,
                     int size)
-        : exp_type(exp_type), struct_name(struct_name), size(size) {}
+        : exp_type(exp_type), struct_name(struct_name), size(size),
+          primitive_size(size) {}
     SplExpExactType(SplExpType exp_type, std::shared_ptr<std::vector<int>> dims,
-                    int size, const int array_idx = 0)
-        : exp_type(exp_type), dims(dims), array_idx(array_idx), size(size) {}
+                    int size, int primitive_size, const int array_idx = 0)
+        : exp_type(exp_type), dims(dims), array_idx(array_idx),
+          size(size), primitive_size{primitive_size} {}
     SplExpExactType(SplExpType exp_type, const std::string &struct_name,
                     std::shared_ptr<std::vector<int>> dims, int size,
-                    const int array_idx = 0)
+                    int primitive_size, const int array_idx = 0)
         : exp_type(exp_type), struct_name(struct_name), dims(dims),
-          array_idx(array_idx), size(size) {}
+          array_idx(array_idx), size(size), primitive_size{primitive_size} {}
 
     SplExpExactType(const SplExpExactType &) = default;
     bool is_array() const { return array_idx != -1; }
@@ -220,6 +229,13 @@ struct SplExpExactType {
         if (array_idx == dims->size()) {
             array_idx = -1;
         }
+    }
+    int get_arr_size_for_current_index() {
+        int res = primitive_size;
+        for (int i = array_idx + 1; i < dims->size(); i++) {
+            res *= dims->at(i);
+        }
+        return res;
     }
     bool operator==(const SplExpExactType &rhs) const {
         if (exp_type != rhs.exp_type) {
@@ -316,12 +332,14 @@ class SplScope {
     int install_symbol(std::shared_ptr<SplSymbol> sym) {
         return tables_.back().install_symbol(sym);
     }
-    std::optional<std::shared_ptr<SplSymbol>> lookup(const std::string &name) {
+
+    template <typename T = SplSymbol>
+    std::optional<std::shared_ptr<T>> lookup(const std::string &name) {
         for (auto it = tables_.crbegin(); it != tables_.crend(); it++) {
             auto &table = *it;
             auto table_it = table.find(name);
             if (table_it != table.end()) {
-                return (*table_it).second;
+                return std::static_pointer_cast<T>((*table_it).second);
             }
         }
         return std::nullopt;
@@ -370,11 +388,23 @@ class SplVariableSymbol : public SplSymbol {
 };
 
 class SplStructSymbol : public SplSymbol {
+    std::unordered_map<std::string, int> offsets;
+
   public:
+    int install_symbol(std::shared_ptr<SplVariableSymbol> sym) {
+        int res = members.install_symbol(sym);
+        if (res == SplSymbolTable::SPL_SYM_INSTALL_OK) {
+            offsets[sym->name] = size;
+            size += sym->var_type->size;
+        }
+        return res;
+    }
+
     SplSymbolTable members;
     SplStructSymbol(const std::string &name)
         : SplSymbol{name, SplSymbolType::SPL_SYM_STRUCT} {}
     int size = 0;
+    int get_offset(const std::string &name) { return offsets[name]; }
     void print() {
         std::cout << "Struct: " << name << std::endl;
         members.print();

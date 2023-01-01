@@ -250,7 +250,9 @@ void traverse(SplAstNode *current) {
 
             auto exact_type = std::make_shared<SplExpExactType>(
                 SplExpType::SPL_EXP_STRUCT, struct_name,
-                std::static_pointer_cast<SplStructSymbol>((*symbols.lookup(struct_name)))->size);
+                std::static_pointer_cast<SplStructSymbol>(
+                    (*symbols.lookup(struct_name)))
+                    ->size);
             current->attr.value = std::make_unique<SplValSpec>(exact_type);
             install_specifier(exact_type);
         } else {
@@ -338,12 +340,16 @@ void traverse(SplAstNode *current) {
                 current->attr.value = std::make_unique<SplValVarDec>(
                     value_prev.name,
                     std::make_shared<SplExpExactType>(
-                        SPL_EXP_STRUCT, value_prev.type->struct_name, dims, value_prev.type->size * dims->back()));
+                        SPL_EXP_STRUCT, value_prev.type->struct_name, dims,
+                        value_prev.type->size * dims->back(),
+                        value_prev.type->primitive_size));
             } else {
                 current->attr.value = std::make_unique<SplValVarDec>(
                     value_prev.name,
-                    std::make_shared<SplExpExactType>(value_prev.type->exp_type,
-                                                      std::move(dims), value_prev.type->size * dims->back()));
+                    std::make_shared<SplExpExactType>(
+                        value_prev.type->exp_type, std::move(dims),
+                        value_prev.type->size * dims->back(),
+                        value_prev.type->primitive_size));
             }
         } else {
             assert(false);
@@ -376,8 +382,7 @@ void traverse(SplAstNode *current) {
                 }
             } else {
                 // add struct member
-                int ret = current_structs.top().current->members.install_symbol(
-                    symbol);
+                int ret = current_structs.top().current->install_symbol(symbol);
                 if (ret != SplSymbolTable::SPL_SYM_INSTALL_OK) {
                     if (ret == SplSymbolTable::SPL_SYM_INSTALL_REDEF_VAR) {
                         report_semantic_error(3, current);
@@ -392,7 +397,6 @@ void traverse(SplAstNode *current) {
                     current_structs.top().isBroken = true;
                     return;
                 }
-                current_structs.top().current->size += symbol->var_type->size;
             }
         }
         break;
