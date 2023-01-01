@@ -247,8 +247,10 @@ void traverse(SplAstNode *current) {
             // handle struct specifier
             std::string &struct_name =
                 current->children[0]->attr.val<SplValStructSpec>().struct_name;
+
             auto exact_type = std::make_shared<SplExpExactType>(
-                SplExpType::SPL_EXP_STRUCT, struct_name);
+                SplExpType::SPL_EXP_STRUCT, struct_name,
+                std::static_pointer_cast<SplStructSymbol>((*symbols.lookup(struct_name)))->size);
             current->attr.value = std::make_unique<SplValSpec>(exact_type);
             install_specifier(exact_type);
         } else {
@@ -336,12 +338,12 @@ void traverse(SplAstNode *current) {
                 current->attr.value = std::make_unique<SplValVarDec>(
                     value_prev.name,
                     std::make_shared<SplExpExactType>(
-                        SPL_EXP_STRUCT, value_prev.type->struct_name, dims));
+                        SPL_EXP_STRUCT, value_prev.type->struct_name, dims, value_prev.type->size * dims->back()));
             } else {
                 current->attr.value = std::make_unique<SplValVarDec>(
                     value_prev.name,
                     std::make_shared<SplExpExactType>(value_prev.type->exp_type,
-                                                      std::move(dims)));
+                                                      std::move(dims), value_prev.type->size * dims->back()));
             }
         } else {
             assert(false);
@@ -390,6 +392,7 @@ void traverse(SplAstNode *current) {
                     current_structs.top().isBroken = true;
                     return;
                 }
+                current_structs.top().current->size += symbol->var_type->size;
             }
         }
         break;

@@ -297,7 +297,8 @@ void traverse_exp(SplAstNode *now) {
                 now->children[0]->attr.val<SplValId>().val_id;
             if (func_name == "write") {
                 auto &ins = now->ir.back();
-                std::unique_ptr<SplIrArgInstruction> arg_ins(static_cast<SplIrArgInstruction*>(ins.release()));
+                std::unique_ptr<SplIrArgInstruction> arg_ins(
+                    static_cast<SplIrArgInstruction *>(ins.release()));
                 ir_var = arg_ins->arg.repr;
                 now->ir.pop_back();
                 now->ir.emplace_back(std::make_unique<SplIrWriteInstruction>(
@@ -357,8 +358,10 @@ void handle_dec(SplAstNode *now) {
     auto symbol =
         std::static_pointer_cast<SplVariableSymbol>(*(symbols.lookup(name)));
     if (symbol->var_type->is_array_or_struct()) {
-        // out << "DEC " << name << " [size]" << std::endl;
-        // TODO: fill size.
+        now->ir.emplace_back(std::make_unique<SplIrDecInstruction>(
+            SplIrOperand(SplIrOperand::R_VALUE_VARIABLE,
+                         spl_var_name_2_ir_var_name[name]),
+            symbol->var_type->size));
     }
     if (now->children.size() == 3) {
         // VarDec ASSIGN Exp

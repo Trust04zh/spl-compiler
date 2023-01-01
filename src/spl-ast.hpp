@@ -5,13 +5,13 @@
 #include <cassert>
 #include <cstdio>
 #include <iostream>
+#include <list>
 #include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <variant>
 #include <vector>
-#include <list>
 
 // iterators keeps valid after unordered_map being modified, except for iterator
 // to the modified element
@@ -197,18 +197,22 @@ struct SplExpExactType {
     const std::string struct_name; // if exp_type == SplExpType::SPL_EXP_STRUCT
     int array_idx{-1};
     const std::shared_ptr<std::vector<int>> dims; // if is_array()
+    int size;
 
-    explicit SplExpExactType(SplExpType exp_type) : exp_type(exp_type) {}
-    SplExpExactType(SplExpType exp_type, const std::string &struct_name)
-        : exp_type(exp_type), struct_name(struct_name) {}
-    SplExpExactType(SplExpType exp_type, std::shared_ptr<std::vector<int>> dims,
-                    const int array_idx = 0)
-        : exp_type(exp_type), dims(dims), array_idx(array_idx) {}
+    explicit SplExpExactType(SplExpType exp_type)
+        : exp_type(exp_type), size{exp_type == SPL_EXP_CHAR ? 1 : 4} {}
     SplExpExactType(SplExpType exp_type, const std::string &struct_name,
-                    std::shared_ptr<std::vector<int>> dims,
+                    int size)
+        : exp_type(exp_type), struct_name(struct_name), size(size) {}
+    SplExpExactType(SplExpType exp_type, std::shared_ptr<std::vector<int>> dims,
+                    int size, const int array_idx = 0)
+        : exp_type(exp_type), dims(dims), array_idx(array_idx), size(size) {}
+    SplExpExactType(SplExpType exp_type, const std::string &struct_name,
+                    std::shared_ptr<std::vector<int>> dims, int size,
                     const int array_idx = 0)
         : exp_type(exp_type), struct_name(struct_name), dims(dims),
-          array_idx(array_idx) {}
+          array_idx(array_idx), size(size) {}
+
     SplExpExactType(const SplExpExactType &) = default;
     bool is_array() const { return array_idx != -1; }
     void step_array_idx() {
@@ -237,7 +241,9 @@ struct SplExpExactType {
     bool operator!=(const SplExpExactType &rhs) const {
         return !(*this == rhs);
     }
-    bool is_array_or_struct() const { return is_array() || exp_type == SPL_EXP_STRUCT; }
+    bool is_array_or_struct() const {
+        return is_array() || exp_type == SPL_EXP_STRUCT;
+    }
 };
 
 enum SplSymbolType { SPL_SYM_VAR, SPL_SYM_STRUCT, SPL_SYM_FUNC };
@@ -368,6 +374,7 @@ class SplStructSymbol : public SplSymbol {
     SplSymbolTable members;
     SplStructSymbol(const std::string &name)
         : SplSymbol{name, SplSymbolType::SPL_SYM_STRUCT} {}
+    int size = 0;
     void print() {
         std::cout << "Struct: " << name << std::endl;
         members.print();
