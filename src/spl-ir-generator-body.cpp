@@ -11,9 +11,7 @@ static std::stringstream out;
 
 static std::unordered_map<std::string, std::string> spl_var_name_2_ir_var_name;
 static SplIrAutoIncrementHelper var_counter("v");
-
 static SplIrAutoIncrementHelper tmp_counter("t");
-
 static SplIrAutoIncrementHelper label_counter("label");
 
 SplIrOperand::OperandType ir_name_2_operand_type(const std::string &name) {
@@ -124,7 +122,16 @@ void traverse_exp(SplAstNode *now) {
     // Caution: deref before use exp
     // Caution: deref before use exp
     // Caution: deref before use exp
-    if (now->attr.type != SplAstNodeType::SPL_EXP) {
+    if (now->attr.type == SplAstNodeType::SPL_AND ||
+        now->attr.type == SplAstNodeType::SPL_OR) {
+
+        auto label = std::make_shared<SplIrLabelInstruction>(
+            SplIrOperand(SplIrOperand::LABEL, label_counter.next()));
+        // TODO: check correctness
+        now->parent->children[2]->ir.emplace_back(label);
+        now->parent->attr.val<SplValExp>().ir_var.label = label;
+        return;
+    } else if (now->attr.type != SplAstNodeType::SPL_EXP) {
         return;
     }
 
@@ -157,7 +164,9 @@ void traverse_exp(SplAstNode *now) {
         switch (now->children[0]->attr.type) {
         case SplAstNodeType::SPL_NOT: {
             // Exp -> NOT Exp
-            // TODO: boolean operation
+            auto &ir_var = now->attr.val<SplValExp>().ir_var;
+            ir_var = std::move(now->children[1]->attr.val<SplValExp>().ir_var);
+            std::swap(ir_var.falselist, ir_var.truelist);
             break;
         }
         case SplAstNodeType::SPL_MINUS: {
@@ -208,14 +217,38 @@ void traverse_exp(SplAstNode *now) {
         }
         case SplAstNodeType::SPL_AND: {
             // Exp -> Exp AND Exp
-            // TODO: boolean operation
-            std::cout << "AND" << std::endl;
+            auto &ir_var = now->attr.val<SplValExp>().ir_var;
+            auto &lhs_ir_var = now->children[0]->attr.val<SplValExp>().ir_var;
+            auto &rhs_ir_var = now->children[2]->attr.val<SplValExp>().ir_var;
+
+            // backpatch
+            for (auto &ins : lhs_ir_var.truelist) {
+                ins->patch(ir_var.label->label);
+            }
+
+            ir_var.truelist = std::move(rhs_ir_var.truelist);
+            ir_var.falselist.splice_after(ir_var.falselist.before_begin(),
+                                          lhs_ir_var.falselist);
+            ir_var.falselist.splice_after(ir_var.falselist.before_begin(),
+                                          rhs_ir_var.falselist);
             break;
         }
         case SplAstNodeType::SPL_OR: {
             // Exp -> Exp OR Exp
-            // TODO: boolean operation
-            std::cout << "OR" << std::endl;
+            auto &ir_var = now->attr.val<SplValExp>().ir_var;
+            auto &lhs_ir_var = now->children[0]->attr.val<SplValExp>().ir_var;
+            auto &rhs_ir_var = now->children[2]->attr.val<SplValExp>().ir_var;
+
+            // backpatch
+            for (auto &ins : lhs_ir_var.falselist) {
+                ins->patch(ir_var.label->label);
+            }
+
+            ir_var.falselist = std::move(rhs_ir_var.falselist);
+            ir_var.truelist.splice_after(ir_var.truelist.before_begin(),
+                                         lhs_ir_var.truelist);
+            ir_var.truelist.splice_after(ir_var.truelist.before_begin(),
+                                         rhs_ir_var.truelist);
             break;
         }
         case SplAstNodeType::SPL_LT:
@@ -224,14 +257,25 @@ void traverse_exp(SplAstNode *now) {
         case SplAstNodeType::SPL_GE:
         case SplAstNodeType::SPL_EQ:
         case SplAstNodeType::SPL_NE: {
-            std::cout << "EQ" << std::endl;
             // Exp -> Exp LT Exp
             // Exp -> Exp LE Exp
             // Exp -> Exp GT Exp
             // Exp -> Exp GE Exp
             // Exp -> Exp EQ Exp
             // Exp -> Exp NE Exp
-            // TODO: IF GOTO instruction
+            std::string lhs_ir_var = deref(now->children[0]),
+                        rhs_ir_var = deref(now->children[2]);
+            auto if_ins = std::make_shared<SplIrIfGotoInstruction>(
+                SplIrOperand(ir_name_2_operand_type(lhs_ir_var), lhs_ir_var),
+                SplIrOperand(ir_name_2_operand_type(rhs_ir_var), rhs_ir_var),
+                now->children[1]->attr.type);
+            auto goto_ins = std::make_shared<SplIrGotoInstruction>();
+            now->ir.emplace_back(if_ins);
+            now->ir.emplace_back(goto_ins);
+
+            auto &ir_var = now->attr.val<SplValExp>().ir_var;
+            ir_var.truelist.emplace_front(if_ins);
+            ir_var.falselist.emplace_front(goto_ins);
             break;
         }
         case SplAstNodeType::SPL_PLUS: {
@@ -285,7 +329,7 @@ void traverse_exp(SplAstNode *now) {
         case SplAstNodeType::SPL_EXP: {
             // Exp -> LP Exp RP
             now->attr.val<SplValExp>().ir_var =
-                now->children[1]->attr.val<SplValExp>().ir_var;
+                std::move(now->children[1]->attr.val<SplValExp>().ir_var);
             break;
         }
         case SplAstNodeType::SPL_DOT: {
@@ -473,16 +517,69 @@ void handle_stmt(SplAstNode *now) {
     }
     case SPL_IF: {
         // IF LP Exp RP Stmt (ELSE Stmt)
-        std::cout << "IF EXP--------------" << std::endl;
         handle_exp(now->children[2]);
-        for (auto &ir : now->children[2]->ir) {
-            ir->print(out);
+        auto label = SplIrOperand(SplIrOperand::LABEL, label_counter.next());
+        now->children[2]->ir.emplace_back(
+            std::make_shared<SplIrLabelInstruction>(SplIrOperand{label}));
+        auto &ir_var = now->children[2]->attr.val<SplValExp>().ir_var;
+        for (auto &v : ir_var.truelist) {
+            v->patch(label);
         }
-        std::cout << "----------------" << std::endl;
+
+        label = SplIrOperand(SplIrOperand::LABEL, label_counter.next());
+        handle_stmt(now->children[4]);
+        collect_ir_by_postorder(now->children[4]);
+
+        if (now->children.size() == 7) { // ELSE Stmt
+            handle_stmt(now->children[6]);
+            auto end_else_label_operand =
+                SplIrOperand(SplIrOperand::LABEL, label_counter.next());
+            collect_ir_by_postorder(now->children[6]);
+            now->children[6]->ir.emplace_back(
+                std::make_shared<SplIrLabelInstruction>(
+                    SplIrOperand{end_else_label_operand}));
+
+            now->children[4]->ir.emplace_back(
+                std::make_shared<SplIrGotoInstruction>(
+                    SplIrOperand{end_else_label_operand}));
+        }
+        now->children[4]->ir.emplace_back(
+            std::make_shared<SplIrLabelInstruction>(SplIrOperand{label}));
+        for (auto &v : ir_var.falselist) {
+            v->patch(label);
+        }
+
         return;
     }
     case SPL_WHILE: {
+        // WHILE LP Exp RP Stmt
+        auto exp_begin_label =
+            SplIrOperand(SplIrOperand::LABEL, label_counter.next());
+        now->children[2]->ir.emplace_back(
+            std::make_shared<SplIrLabelInstruction>(
+                SplIrOperand{exp_begin_label}));
+
         handle_exp(now->children[2]);
+        auto label = SplIrOperand(SplIrOperand::LABEL, label_counter.next());
+        now->children[2]->ir.emplace_back(
+            std::make_shared<SplIrLabelInstruction>(SplIrOperand{label}));
+        auto &ir_var = now->children[2]->attr.val<SplValExp>().ir_var;
+        for (auto &v : ir_var.truelist) {
+            v->patch(label);
+        }
+
+        label = SplIrOperand(SplIrOperand::LABEL, label_counter.next());
+        handle_stmt(now->children[4]);
+        collect_ir_by_postorder(now->children[4]);
+        now->children[4]->ir.emplace_back(
+            std::make_shared<SplIrGotoInstruction>(
+                SplIrOperand{exp_begin_label}));
+        now->children[4]->ir.emplace_back(
+            std::make_shared<SplIrLabelInstruction>(SplIrOperand{label}));
+        for (auto &v : ir_var.falselist) {
+            v->patch(label);
+        }
+
         return;
     }
     }
@@ -500,7 +597,8 @@ void traverse_comp(SplAstNode *now) {
     case SPL_SPECIFIER:
     case SPL_SEMI:
     case SPL_LC:
-    case SPL_RC: {
+    case SPL_RC:
+    case SPL_COMMA: {
         return;
     }
     case SPL_STMT: {

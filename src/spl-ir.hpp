@@ -1,6 +1,8 @@
 #ifndef SPL_IR_HPP
 #define SPL_IR_HPP
 
+#include "spl-enum.hpp"
+#include <optional>
 #include <sstream>
 #include <string>
 
@@ -31,7 +33,7 @@ class SplIrOperand {
     OperandType type;
     std::string repr;
     SplIrOperand(OperandType type, std::string repr) : type(type), repr(repr) {}
-    SplIrOperand(const SplIrOperand&) = default;
+    SplIrOperand(const SplIrOperand &) = default;
 };
 
 class SplIrInstruction {
@@ -73,6 +75,11 @@ class SplIrLabelInstruction : public SplIrInstruction {
     void print(std::stringstream &out) override {
         out << "LABEL " << label.repr << " :" << std::endl;
     }
+};
+
+class Patchable {
+  public:
+    virtual void patch(const SplIrOperand &label) = 0;
 };
 
 class SplIrFunctionInstruction : public SplIrInstruction {
@@ -239,33 +246,54 @@ class SplIrAssignDerefDstInstruction : public SplIrInstruction {
             throw std::runtime_error("AssignDerefDst instruction must have "
                                      "l-value destination operand");
         }
-//        if (!this->src.is_l_value()) {
-//            throw std::runtime_error("AssignDerefDst instruction must have "
-//                                     "l-value source operand");
-//        }
     }
     void print(std::stringstream &out) override {
         out << "*" << dst.repr << " := " << src.repr << std::endl;
     }
 };
 
-class SplIrGotoInstruction : public SplIrInstruction {
+class SplIrGotoInstruction : public SplIrInstruction, public Patchable {
   public:
-    SplIrOperand label;
-    SplIrGotoInstruction(SplIrOperand &&label) : label(label) {
-        if (!this->label.is_label()) {
+    std::optional<SplIrOperand> label;
+    explicit SplIrGotoInstruction(SplIrOperand &&label)
+        : label{std::move(label)} {}
+    SplIrGotoInstruction() {}
+
+    void patch(const SplIrOperand &label) override { this->label = label; }
+
+    void print(std::stringstream &out) override {
+        if (!this->label.has_value()) {
+            throw std::runtime_error("Goto instruction label unfilled");
+        }
+        if (!this->label->is_label()) {
             throw std::runtime_error(
                 "Goto instruction must have label operand");
         }
-    }
-    void print(std::stringstream &out) override {
-        out << "GOTO " << label.repr << std::endl;
+        out << "GOTO " << label->repr << std::endl;
     }
 };
 
-class SplIrIfGotoInstruction : public SplIrInstruction {
+class SplIrIfGotoInstruction : public SplIrInstruction, public Patchable {
   public:
     enum Relop { EQ, NE, LT, LE, GT, GE };
+    static Relop astNodeTypeToRelop(SplAstNodeType t) {
+        switch (t) {
+        case SplAstNodeType::SPL_LT:
+            return LT;
+        case SplAstNodeType::SPL_LE:
+            return LE;
+        case SplAstNodeType::SPL_GT:
+            return GT;
+        case SplAstNodeType::SPL_GE:
+            return GE;
+        case SplAstNodeType::SPL_EQ:
+            return EQ;
+        case SplAstNodeType::SPL_NE:
+            return NE;
+        default:
+            throw std::runtime_error("unrecognized ast node type");
+        }
+    }
 
   private:
     static std::string relop_to_string(Relop relop) {
@@ -287,24 +315,38 @@ class SplIrIfGotoInstruction : public SplIrInstruction {
     }
 
   public:
-    SplIrOperand lhs, rhs, label;
+    SplIrOperand lhs, rhs;
+    std::optional<SplIrOperand> label;
     Relop relop;
-    SplIrIfGotoInstruction(SplIrOperand &&lhs, SplIrOperand &&rhs, Relop relop,
-                           SplIrOperand &&label)
-        : lhs(std::move(lhs)), rhs(std::move(rhs)), relop(relop),
-          label(std::move(label)) {
+    SplIrIfGotoInstruction(SplIrOperand &&lhs, SplIrOperand &&rhs,
+                           const SplAstNodeType &relop)
+        : lhs(std::move(lhs)), rhs(std::move(rhs)),
+          relop(astNodeTypeToRelop(relop)) {
         if (!this->lhs.is_value() || !this->rhs.is_value()) {
             throw std::runtime_error("IfGoto instruction must have value "
                                      "operands");
         }
-        if (!this->label.is_label()) {
+    }
+    SplIrIfGotoInstruction(SplIrOperand &&lhs, SplIrOperand &&rhs, Relop relop)
+        : lhs(std::move(lhs)), rhs(std::move(rhs)), relop(relop) {
+        if (!this->lhs.is_value() || !this->rhs.is_value()) {
+            throw std::runtime_error("IfGoto instruction must have value "
+                                     "operands");
+        }
+    }
+
+    void patch(const SplIrOperand &label) override { this->label = label; }
+
+    void print(std::stringstream &out) override {
+        if (!this->label.has_value()) {
+            throw std::runtime_error("IfGoto instruction has no label");
+        }
+        if (!this->label->is_label()) {
             throw std::runtime_error("IfGoto instruction must have label "
                                      "operand");
         }
-    }
-    void print(std::stringstream &out) override {
         out << "IF " << lhs.repr << " " << relop_to_string(relop) << " "
-            << rhs.repr << " GOTO " << label.repr << std::endl;
+            << rhs.repr << " GOTO " << label->repr << std::endl;
     }
 };
 
