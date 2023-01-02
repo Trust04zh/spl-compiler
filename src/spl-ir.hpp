@@ -3,6 +3,7 @@
 
 #include "spl-enum.hpp"
 #include <forward_list>
+#include <functional>
 #include <iostream>
 #include <list>
 #include <memory>
@@ -49,7 +50,8 @@ class SplIrOperand;
 class SplIrInstruction;
 class SplIrBasicBlock;
 
-using SplIrOperandList = std::forward_list<std::shared_ptr<SplIrOperand>>;
+// using SplIrOperandRefList = std::forward_list<std::reference_wrapper<std::shared_ptr<SplIrOperand>>>;
+using SplIrOperandRefList = std::list<std::reference_wrapper<std::shared_ptr<SplIrOperand>>>;
 using SplIrInstructionList = std::list<std::shared_ptr<SplIrInstruction>>;
 using SplIrBasicBlockList = std::list<std::shared_ptr<SplIrBasicBlock>>;
 using SplIrOperandName2Operand =
@@ -118,12 +120,18 @@ class SplIrOperand {
 class SplIrInstruction {
   public:
     SplIrInstructionType type;
-    SplIrOperandList operands;
+    /* subclasses should track operands manually */
+    SplIrOperandRefList operands;
     explicit SplIrInstruction(SplIrInstructionType type) : type(type) {}
     virtual void print(std::stringstream &out) = 0;
-    void replace_usage(std::shared_ptr<SplIrOperand> &old_op,
-                       std::shared_ptr<SplIrOperand> &new_op) {
-        // TODO
+    void replace_usage(std::shared_ptr<SplIrOperand> old_op,
+                       std::shared_ptr<SplIrOperand> new_op) {
+        for (auto &operand : operands) {
+            if (operand.get() == old_op) {
+                operand.get() = new_op;
+                // TODO: reduce use count for old_op, increase use count for new_op 
+            }
+        }
     }
 };
 
@@ -136,6 +144,7 @@ class SplIrLabelInstruction : public SplIrInstruction {
             throw std::runtime_error(
                 "Label instruction must have label operand");
         }
+        operands.push_front(this->label);
     }
     void print(std::stringstream &out) override {
         out << "LABEL " << label->repr << " :" << std::endl;
@@ -151,6 +160,7 @@ class SplIrFunctionInstruction : public SplIrInstruction {
             throw std::runtime_error(
                 "Function instruction must have function operand");
         }
+        operands.push_front(this->func);
     }
     void print(std::stringstream &out) override {
         out << "FUNCTION " << func->repr << " :" << std::endl;
@@ -171,6 +181,8 @@ class SplIrAssignInstruction : public SplIrInstruction {
             throw std::runtime_error(
                 "Assign instruction must have value source operand");
         }
+        operands.push_front(this->dst);
+        operands.push_front(this->src);
     }
     void print(std::stringstream &out) override {
         out << dst->repr << " := " << src->repr << std::endl;
@@ -193,6 +205,9 @@ class SplIrAssignAddInstruction : public SplIrInstruction {
             throw std::runtime_error(
                 "AssignAdd instruction must have value source operand");
         }
+        operands.push_front(this->dst);
+        operands.push_front(this->src1);
+        operands.push_front(this->src2);
     }
     void print(std::stringstream &out) override {
         out << dst->repr << " := " << src1->repr << " + " << src2->repr
@@ -216,6 +231,9 @@ class SplIrAssignMinusInstruction : public SplIrInstruction {
             throw std::runtime_error(
                 "AssignMinus instruction must have value source operand");
         }
+        operands.push_front(this->dst);
+        operands.push_front(this->src1);
+        operands.push_front(this->src2);
     }
     void print(std::stringstream &out) override {
         out << dst->repr << " := " << src1->repr << " - " << src2->repr
@@ -239,6 +257,9 @@ class SplIrAssignMulInstruction : public SplIrInstruction {
             throw std::runtime_error(
                 "AssignMul instruction must have value source operand");
         }
+        operands.push_front(this->dst);
+        operands.push_front(this->src1);
+        operands.push_front(this->src2);
     }
     void print(std::stringstream &out) override {
         out << dst->repr << " := " << src1->repr << " * " << src2->repr
@@ -262,6 +283,9 @@ class SplIrAssignDivInstruction : public SplIrInstruction {
             throw std::runtime_error(
                 "AssignDiv instruction must have value source operand");
         }
+        operands.push_front(this->dst);
+        operands.push_front(this->src1);
+        operands.push_front(this->src2);
     }
     void print(std::stringstream &out) override {
         out << dst->repr << " := " << src1->repr << " / " << src2->repr
@@ -284,6 +308,8 @@ class SplIrAssignAddressInstruction : public SplIrInstruction {
             throw std::runtime_error("AssignAddress instruction must have "
                                      "l-value source operand");
         }
+        operands.push_front(this->dst);
+        operands.push_front(this->src);
     }
     void print(std::stringstream &out) override {
         out << dst->repr << " := &" << src->repr << std::endl;
@@ -305,6 +331,8 @@ class SplIrAssignDerefSrcInstruction : public SplIrInstruction {
             throw std::runtime_error("AssignDerefSrc instruction must have "
                                      "l-value source operand");
         }
+        operands.push_front(this->dst);
+        operands.push_front(this->src);
     }
     void print(std::stringstream &out) override {
         out << dst->repr << " := *" << src->repr << std::endl;
@@ -322,6 +350,8 @@ class SplIrAssignDerefDstInstruction : public SplIrInstruction {
             throw std::runtime_error("AssignDerefDst instruction must have "
                                      "l-value destination operand");
         }
+        operands.push_front(this->dst);
+        operands.push_front(this->src);
     }
     void print(std::stringstream &out) override {
         out << "*" << dst->repr << " := " << src->repr << std::endl;
@@ -332,11 +362,14 @@ class SplIrGotoInstruction : public SplIrInstruction, public Patchable {
   public:
     std::optional<std::shared_ptr<SplIrOperand>> label;
     explicit SplIrGotoInstruction(std::shared_ptr<SplIrOperand> label)
-        : label{label}, SplIrInstruction(SplIrInstructionType::GOTO) {}
+        : label{label}, SplIrInstruction(SplIrInstructionType::GOTO) {
+            operands.push_front(this->label.value());
+        }
     SplIrGotoInstruction() : SplIrInstruction(SplIrInstructionType::GOTO) {}
 
     void patch(const std::shared_ptr<SplIrOperand> label) override {
         this->label = label;
+        operands.push_front(this->label.value());
     }
 
     void print(std::stringstream &out) override {
@@ -418,6 +451,7 @@ class SplIrIfGotoInstruction : public SplIrInstruction, public Patchable {
 
     void patch(const std::shared_ptr<SplIrOperand> label) override {
         this->label = label;
+        operands.push_front(this->label.value());
     }
 
     void print(std::stringstream &out) override {
@@ -442,6 +476,7 @@ class SplIrReturnInstruction : public SplIrInstruction {
             throw std::runtime_error(
                 "Return instruction must have value operand");
         }
+        operands.push_front(this->src);
     }
     void print(std::stringstream &out) override {
         out << "RETURN " << src->repr << std::endl;
@@ -463,6 +498,7 @@ class SplIrDecInstruction : public SplIrInstruction {
             throw std::runtime_error("Dec instruction must have "
                                      "positive multiple of 4 size");
         }
+        operands.push_front(this->variable);
     }
     void print(std::stringstream &out) override {
         out << "DEC " << variable->repr << " " << size << std::endl;
@@ -477,6 +513,7 @@ class SplIrArgInstruction : public SplIrInstruction {
         if (!this->arg->is_value()) {
             throw std::runtime_error("Arg instruction must have value operand");
         }
+        operands.push_front(this->arg);
     }
     void print(std::stringstream &out) override {
         out << "ARG " << arg->repr << std::endl;
@@ -498,6 +535,8 @@ class SplIrAssignCallInstruction : public SplIrInstruction {
             throw std::runtime_error("Call instruction must have "
                                      "function operand to call");
         }
+        operands.push_front(this->dst);
+        operands.push_front(this->func);
     }
     void print(std::stringstream &out) override {
         out << dst->repr << " := CALL " << func->repr << std::endl;
@@ -513,6 +552,7 @@ class SplIrParamInstruction : public SplIrInstruction {
             throw std::runtime_error(
                 "Param instruction must have value operand");
         }
+        operands.push_front(this->param);
     }
     void print(std::stringstream &out) override {
         out << "PARAM " << param->repr << std::endl;
@@ -528,6 +568,7 @@ class SplIrReadInstruction : public SplIrInstruction {
             throw std::runtime_error("Read instruction must have "
                                      "l-value destination operand");
         }
+        operands.push_front(this->dst);
     }
     void print(std::stringstream &out) override {
         out << "READ " << dst->repr << std::endl;
@@ -543,6 +584,7 @@ class SplIrWriteInstruction : public SplIrInstruction {
             throw std::runtime_error("Write instruction must have "
                                      "value source operand");
         }
+        operands.push_front(this->src);
     }
     void print(std::stringstream &out) override {
         out << "WRITE " << src->repr << std::endl;
@@ -603,18 +645,34 @@ class SplIrModule {
 
     void replace_usage(std::string operand_name);
     void erase_instruction(std::shared_ptr<SplIrInstruction>);
+
+    void debug_print_use_list() {
+        // for debug
+
+    }
 };
 
 void SplIrModule::build_use_list() {
-    // TODO: build use list
+    // build use list
+    for (auto &inst : ir) {
+        std::cout << inst->operands.size() << std::endl;
+        for (auto operand : inst->operands) {
+            /* Note that an inst may be pushed more than once */
+            // std::cout << operand.get() << std::endl;
+            std::cout << operand.get()->repr << std::endl;
+            // use_list[operand.get()->repr].push_back(inst);
+        }
+    }
 }
 
 void SplIrModule::build_basic_blocks() {
     // TODO: build basic blocks
     // requires use_list
     auto &use_main = use_list["main"];
-    for (auto &inst : use_main) {
+    for (auto inst : use_main) {
         if (inst->type == SplIrInstructionType::FUNCTION) {
+            auto func_inst = std::static_pointer_cast<SplIrFunctionInstruction>(inst);
+            std::cout << "Found function " << func_inst->func->repr << std::endl;
             // TODO: begin traversing
         }
     }
