@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <forward_list>
 #include <functional>
+#include <iomanip>
 #include <iostream>
 #include <list>
 #include <memory>
@@ -633,10 +634,9 @@ class SplIrModule {
 
     void build_use_list();
     void build_basic_blocks();
-    void
-    traverse_build_basic_blocks(SplIrInstructionList::iterator current,
-                                std::shared_ptr<SplIrBasicBlock> basic_block);
     void mark_head_instruction(SplIrInstructionList::iterator current);
+    void register_control_flow_edge(SplIrInstructionList::iterator from,
+                                    SplIrInstructionList::iterator to);
 
   public:
     SplIrInstructionList ir;
@@ -684,8 +684,20 @@ class SplIrModule {
     void debug_print_basic_blocks() {
         // for debug
         std::stringstream ss;
-        for (auto &inst: ir) {
-            ss << inst->parent->name << "\t: ";
+        for (auto &inst : ir) {
+            ss << std::setw(8) << std::left << inst->parent->name;
+            std::stringstream ss_pred;
+            ss_pred  << "pred: ";
+            for (auto &pred : inst->parent->predecessors) {
+                ss_pred << pred->name << " ";
+            }
+            ss << std::setw(20) << std::left << ss_pred.str();
+            std::stringstream ss_succ;
+            ss_succ  << "succ: ";
+            for (auto &succ : inst->parent->successors) {
+                ss_succ << succ->name << " ";
+            }
+            ss << std::setw(20) << std::left << ss_succ.str();
             inst->print(ss);
         }
         std::cout << ss.str() << std::endl;
@@ -705,7 +717,7 @@ void SplIrModule::build_use_list() {
 
 void SplIrModule::build_basic_blocks() {
     // requires use_list
-    // iterate ir, find functions
+    // find head instructions
     for (auto it = ir.begin(); it != ir.end(); it++) {
         switch ((*it)->type) {
         case SplIrInstructionType::FUNCTION: {
@@ -750,11 +762,42 @@ void SplIrModule::build_basic_blocks() {
         }
         }
     }
+    // patch parent for instructions
     for (auto basic_block : basic_blocks) {
         auto current = basic_block->head;
         while (current++,
                current != ir.end() && (*current)->parent == nullptr) {
             (*current)->parent = basic_block;
+        }
+    }
+    // build control flow
+    // here we do not consider inter procedural analysis (do not consider
+    // function call)
+    for (auto it = ir.begin(); it != ir.end(); it++) {
+        switch ((*it)->type) {
+        case SplIrInstructionType::GOTO: {
+            std::string label_name =
+                (std::static_pointer_cast<SplIrGotoInstruction>(*it))
+                    ->label.value()
+                    ->repr;
+            auto it_label = get_ir_itor_by_label_name(label_name);
+            register_control_flow_edge(it, it_label);
+            break;
+        }
+        case SplIrInstructionType::IF_GOTO: {
+            std::string label_name =
+                (std::static_pointer_cast<SplIrIfGotoInstruction>(*it))
+                    ->label.value()
+                    ->repr;
+            auto it_label = get_ir_itor_by_label_name(label_name);
+            register_control_flow_edge(it, it_label);
+            auto next = it;
+            next++;
+            if (next != ir.end()) {
+                register_control_flow_edge(it, next);
+            }
+            break;
+        }
         }
     }
     return;
@@ -769,6 +812,12 @@ void SplIrModule::mark_head_instruction(
         std::make_shared<SplIrBasicBlock>(bb_counter->next()->repr, current));
     auto basic_block = basic_blocks.back();
     (*current)->parent = basic_block;
+}
+
+void SplIrModule::register_control_flow_edge(
+    SplIrInstructionList::iterator from, SplIrInstructionList::iterator to) {
+    (*from)->parent->successors.push_back((*to)->parent);
+    (*to)->parent->predecessors.push_back((*from)->parent);
 }
 
 SplIrModule::SplIrModule()

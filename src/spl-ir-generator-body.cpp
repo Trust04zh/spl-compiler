@@ -616,4 +616,43 @@ void traverse_ir(SplAstNode *now) {
     }
 }
 
-void opt_ir() {}
+void opt_ir() {
+    bool dead_basic_block_removed = true;
+    while (dead_basic_block_removed) {
+        dead_basic_block_removed = false;
+        for (auto it_bb = ir_module.basic_blocks.begin();
+             it_bb != ir_module.basic_blocks.end(); it_bb++) {
+            if ((*it_bb)->predecessors.empty() &&
+                (*(*it_bb)->head)->type != SplIrInstructionType::FUNCTION) {
+                std::cout << "dead basic block: " << (*it_bb)->name
+                          << std::endl;
+                auto it_inst_tmp = (*it_bb)->head;
+                while (it_inst_tmp != ir_module.ir.end() &&
+                       (*it_inst_tmp)->parent == (*it_bb)) {
+                    for (auto operand : (*it_inst_tmp)->operands) {
+                        auto &use_list = ir_module.use_list[operand.get()->repr];
+                        for (auto user_inst : use_list) {
+                            if (user_inst == (*it_inst_tmp)) {
+                                use_list.erase(
+                                    std::find(use_list.begin(), use_list.end(),
+                                              (*it_inst_tmp)));
+                                break;
+                            }
+                        }
+                    }
+                    auto it_inst_prev = it_inst_tmp;
+                    it_inst_tmp++;
+                    ir_module.ir.erase(it_inst_prev);
+                }
+                for (auto successor : (*it_bb)->successors) {
+                    successor->predecessors.erase(
+                        std::find(successor->predecessors.begin(),
+                                  successor->predecessors.end(), *it_bb));
+                }
+                ir_module.basic_blocks.erase(it_bb);
+                dead_basic_block_removed = true;
+                break;
+            }
+        }
+    }
+}
