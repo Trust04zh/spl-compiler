@@ -2,6 +2,7 @@
 #define SPL_IR_HPP
 
 #include "spl-enum.hpp"
+#include <algorithm>
 #include <forward_list>
 #include <functional>
 #include <iostream>
@@ -21,7 +22,8 @@ enum class SplIrOperandType {
                        // expressions, do optimization on them
     L_VALUE_VARIABLE,
     FUNCTION,
-    LABEL
+    LABEL,
+    BASIC_BLOCK
 };
 
 enum class SplIrInstructionType {
@@ -50,8 +52,10 @@ class SplIrOperand;
 class SplIrInstruction;
 class SplIrBasicBlock;
 
-// using SplIrOperandRefList = std::forward_list<std::reference_wrapper<std::shared_ptr<SplIrOperand>>>;
-using SplIrOperandRefList = std::list<std::reference_wrapper<std::shared_ptr<SplIrOperand>>>;
+using SplIrOperandRefList =
+    std::forward_list<std::reference_wrapper<std::shared_ptr<SplIrOperand>>>;
+// using SplIrOperandRefList =
+//     std::list<std::reference_wrapper<std::shared_ptr<SplIrOperand>>>;
 using SplIrInstructionList = std::list<std::shared_ptr<SplIrInstruction>>;
 using SplIrBasicBlockList = std::list<std::shared_ptr<SplIrBasicBlock>>;
 using SplIrOperandName2Operand =
@@ -77,6 +81,8 @@ class SplIrOperand {
             return SplIrOperandType::L_VALUE_TEMPORARY;
         } else if (name[0] == 'l') {
             return SplIrOperandType::LABEL;
+        } else if (name[0] == 'b') {
+            return SplIrOperandType::BASIC_BLOCK;
         }
         throw std::runtime_error("unknown operand type for name: " + name);
     }
@@ -122,6 +128,7 @@ class SplIrInstruction {
     SplIrInstructionType type;
     /* subclasses should track operands manually */
     SplIrOperandRefList operands;
+    std::shared_ptr<SplIrBasicBlock> parent;
     explicit SplIrInstruction(SplIrInstructionType type) : type(type) {}
     virtual void print(std::stringstream &out) = 0;
     void replace_usage(std::shared_ptr<SplIrOperand> old_op,
@@ -129,7 +136,8 @@ class SplIrInstruction {
         for (auto &operand : operands) {
             if (operand.get() == old_op) {
                 operand.get() = new_op;
-                // TODO: reduce use count for old_op, increase use count for new_op 
+                // TODO: reduce use count for old_op, increase use count for
+                // new_op
             }
         }
     }
@@ -363,8 +371,8 @@ class SplIrGotoInstruction : public SplIrInstruction, public Patchable {
     std::optional<std::shared_ptr<SplIrOperand>> label;
     explicit SplIrGotoInstruction(std::shared_ptr<SplIrOperand> label)
         : label{label}, SplIrInstruction(SplIrInstructionType::GOTO) {
-            operands.push_front(this->label.value());
-        }
+        operands.push_front(this->label.value());
+    }
     SplIrGotoInstruction() : SplIrInstruction(SplIrInstructionType::GOTO) {}
 
     void patch(const std::shared_ptr<SplIrOperand> label) override {
@@ -592,8 +600,12 @@ class SplIrWriteInstruction : public SplIrInstruction {
 };
 
 class SplIrBasicBlock {
-    SplIrInstructionList instructions;
+  public:
+    std::string name;
+    SplIrInstructionList::iterator head;
     SplIrBasicBlockList predecessors, successors;
+    SplIrBasicBlock(std::string name, SplIrInstructionList::iterator head)
+        : name(name), head(head) {}
 };
 
 class SplIrModule {
@@ -621,6 +633,10 @@ class SplIrModule {
 
     void build_use_list();
     void build_basic_blocks();
+    void
+    traverse_build_basic_blocks(SplIrInstructionList::iterator current,
+                                std::shared_ptr<SplIrBasicBlock> basic_block);
+    void mark_head_instruction(SplIrInstructionList::iterator current);
 
   public:
     SplIrInstructionList ir;
@@ -629,7 +645,7 @@ class SplIrModule {
     SplIrBasicBlockList basic_blocks;
 
     std::unique_ptr<SplIrAutoIncrementHelper> var_counter, tmp_counter,
-        label_counter;
+        label_counter, bb_counter;
 
     explicit SplIrModule();
 
@@ -646,43 +662,120 @@ class SplIrModule {
     void replace_usage(std::string operand_name);
     void erase_instruction(std::shared_ptr<SplIrInstruction>);
 
+    SplIrInstructionList::iterator
+    get_ir_itor_by_inst(std::shared_ptr<SplIrInstruction> inst);
+    SplIrInstructionList::iterator
+    get_ir_itor_by_func_name(std::string func_name);
+    SplIrInstructionList::iterator
+    get_ir_itor_by_label_name(std::string label_name);
+
     void debug_print_use_list() {
         // for debug
+        std::stringstream ss;
+        for (auto &pair : use_list) {
+            ss << "> " << pair.first << ": " << std::endl;
+            for (auto inst : pair.second) {
+                inst->print(ss);
+            }
+        }
+        std::cout << ss.str() << std::endl;
+    }
 
+    void debug_print_basic_blocks() {
+        // for debug
+        std::stringstream ss;
+        for (auto &inst: ir) {
+            ss << inst->parent->name << "\t: ";
+            inst->print(ss);
+        }
+        std::cout << ss.str() << std::endl;
     }
 };
 
 void SplIrModule::build_use_list() {
-    // build use list
     for (auto &inst : ir) {
-        std::cout << inst->operands.size() << std::endl;
+        // std::cout << inst->operands.size() << std::endl;
         for (auto operand : inst->operands) {
+            // std::cout << operand.get()->repr << std::endl;
             /* Note that an inst may be pushed more than once */
-            // std::cout << operand.get() << std::endl;
-            std::cout << operand.get()->repr << std::endl;
-            // use_list[operand.get()->repr].push_back(inst);
+            use_list[operand.get()->repr].push_back(inst);
         }
     }
 }
 
 void SplIrModule::build_basic_blocks() {
-    // TODO: build basic blocks
     // requires use_list
-    auto &use_main = use_list["main"];
-    for (auto inst : use_main) {
-        if (inst->type == SplIrInstructionType::FUNCTION) {
-            auto func_inst = std::static_pointer_cast<SplIrFunctionInstruction>(inst);
-            std::cout << "Found function " << func_inst->func->repr << std::endl;
-            // TODO: begin traversing
+    // iterate ir, find functions
+    for (auto it = ir.begin(); it != ir.end(); it++) {
+        switch ((*it)->type) {
+        case SplIrInstructionType::FUNCTION: {
+            mark_head_instruction(it);
+            break;
+        }
+        case SplIrInstructionType::GOTO: {
+            std::string label_name =
+                (std::static_pointer_cast<SplIrGotoInstruction>(*it))
+                    ->label.value()
+                    ->repr;
+            auto it_label = get_ir_itor_by_label_name(label_name);
+            mark_head_instruction(it_label);
+            auto next = it;
+            next++;
+            if (next != ir.end()) {
+                mark_head_instruction(next);
+            }
+            break;
+        }
+        case SplIrInstructionType::IF_GOTO: {
+            std::string label_name =
+                (std::static_pointer_cast<SplIrIfGotoInstruction>(*it))
+                    ->label.value()
+                    ->repr;
+            auto it_label = get_ir_itor_by_label_name(label_name);
+            mark_head_instruction(it_label);
+            auto next = it;
+            next++;
+            if (next != ir.end()) {
+                mark_head_instruction(next);
+            }
+            break;
+        }
+        case SplIrInstructionType::RETURN: {
+            auto next = it;
+            next++;
+            if (next != ir.end()) {
+                mark_head_instruction(next);
+            }
+            break;
+        }
         }
     }
+    for (auto basic_block : basic_blocks) {
+        auto current = basic_block->head;
+        while (current++,
+               current != ir.end() && (*current)->parent == nullptr) {
+            (*current)->parent = basic_block;
+        }
+    }
+    return;
+}
+
+void SplIrModule::mark_head_instruction(
+    SplIrInstructionList::iterator current) {
+    if ((*current)->parent != nullptr) {
+        return;
+    }
+    basic_blocks.push_back(
+        std::make_shared<SplIrBasicBlock>(bb_counter->next()->repr, current));
+    auto basic_block = basic_blocks.back();
+    (*current)->parent = basic_block;
 }
 
 SplIrModule::SplIrModule()
     : var_counter(std::make_unique<SplIrAutoIncrementHelper>(*this, "v")),
       tmp_counter(std::make_unique<SplIrAutoIncrementHelper>(*this, "t")),
-      label_counter(
-          std::make_unique<SplIrAutoIncrementHelper>(*this, "label")){};
+      label_counter(std::make_unique<SplIrAutoIncrementHelper>(*this, "label")),
+      bb_counter(std::make_unique<SplIrAutoIncrementHelper>(*this, "bb")){};
 
 std::shared_ptr<SplIrOperand>
 SplIrModule::get_operand_by_name(std::string name) {
@@ -695,7 +788,6 @@ SplIrModule::get_operand_by_name(std::string name) {
 std::shared_ptr<SplIrOperand>
 SplIrModule::get_or_make_constant_operand_by_name(std::string const_name) {
     if (operand_name_2_operand.count(const_name) == 0) {
-        // SplIrOperand operand(SplIrOperandType::R_VALUE_CONSTANT, const_name);
         operand_name_2_operand[const_name] = std::make_shared<SplIrOperand>(
             SplIrOperand(SplIrOperandType::R_VALUE_CONSTANT, const_name));
     }
@@ -717,7 +809,9 @@ std::shared_ptr<SplIrOperand> SplIrModule::get_or_make_function_operand_by_name(
 void SplIrModule::fill_ir(const SplIrInstructionList &ir) {
     this->ir = ir;
     build_use_list();
-    // build_basic_blocks();
+    debug_print_use_list();
+    build_basic_blocks();
+    debug_print_basic_blocks();
 }
 
 void SplIrModule::replace_usage(std::string operand_name) {
@@ -727,6 +821,39 @@ void SplIrModule::replace_usage(std::string operand_name) {
 void SplIrModule::erase_instruction(std::shared_ptr<SplIrInstruction>) {
     // TODO: remove instruction from ir list
     // TODO: remove usage from use list
+}
+
+SplIrInstructionList::iterator
+SplIrModule::get_ir_itor_by_inst(std::shared_ptr<SplIrInstruction> inst) {
+    return std::find(ir.begin(), ir.end(), inst);
+}
+
+SplIrInstructionList::iterator
+SplIrModule::get_ir_itor_by_func_name(std::string func_name) {
+    for (auto it = ir.begin(); it != ir.end(); it++) {
+        if ((*it)->type == SplIrInstructionType::FUNCTION) {
+            auto func_inst =
+                std::static_pointer_cast<SplIrFunctionInstruction>(*it);
+            if (func_inst->func->repr == func_name) {
+                return it;
+            }
+        }
+    }
+    throw std::runtime_error("Function " + func_name + " not found");
+}
+
+SplIrInstructionList::iterator
+SplIrModule::get_ir_itor_by_label_name(std::string label_name) {
+    for (auto it = ir.begin(); it != ir.end(); it++) {
+        if ((*it)->type == SplIrInstructionType::LABEL) {
+            auto label_inst =
+                std::static_pointer_cast<SplIrLabelInstruction>(*it);
+            if (label_inst->label->repr == label_name) {
+                return it;
+            }
+        }
+    }
+    return ir.end();
 }
 
 #endif /* SPL_IR_HPP */
