@@ -41,7 +41,7 @@ void generate_ir() {
     traverse_ir(prog);
     collect_ir_by_postorder(prog);
     ir_module.fill_ir(prog->ir);
-    opt_ir();
+    opt_ir();  // uncomment this line to enable optimization
     for (auto &ir : ir_module.ir) {
         ir->print(out);
     }
@@ -774,7 +774,6 @@ void opt_ir() {
                                                         inst_if_goto->label.value(),
                                                         inst_goto->label.value());
                                 inst_if_goto->relop = inst_if_goto->negated_relop(inst_if_goto->relop);
-                                std::cout << "relop: " << inst_if_goto->relop_to_string(inst_if_goto->relop) << std::endl;
                                 ir_module.erase_instruction(it_goto);
                                 ir_module.erase_instruction(it_label);
                                 ir_module.rebuild_basic_blocks();
@@ -787,5 +786,4 @@ void opt_ir() {
             }
         }
     }
-    ir_module.debug_print_basic_blocks();
 }

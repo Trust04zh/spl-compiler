@@ -60,6 +60,11 @@ apply `splc` parser on all `.spl` files in specified directory
 ```
 
 ```
+// src/spl-ir-generator-body.cpp
+opt_ir();  // uncomment this line to enable optimization
+```
+
+```
 // src/spl-ir-generator-standalone.cpp
 #define SPL_IR_GENERATOR_DEBUG // uncomment this line to enable debug output
 ```
@@ -69,8 +74,8 @@ apply `splc` parser on all `.spl` files in specified directory
 codegen
 
 - [x] exp
-  - [x] struct addressing
-  - [x] array addressing
+  - [x] bonus: struct addressing
+  - [x] bonus: array addressing
   - [x] arithmetic operation
   - [x] boolean operation
     - [x] short circuit
@@ -85,8 +90,8 @@ codegen
 
 opt
 
-- [] constant folding
 - [x] label fallthrough
 - [x] dead basic block elimination
-- [] common subexpression elimination
 - [x] copy propagation elimination
+- [] constant folding
+- [] common subexpression elimination
