@@ -4,6 +4,7 @@
 #include <string>
 
 #include "spl-ast.hpp"
+#include "spl-enum.hpp"
 #include "spl-parser-module.cpp"
 #include "spl-semantic-error.hpp"
 

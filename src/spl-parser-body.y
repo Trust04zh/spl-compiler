@@ -23,6 +23,7 @@
 
 %code requires {
   #include "spl-ast.hpp"
+  #include "spl-enum.hpp"
 }
 
 %locations

@@ -1,4 +1,7 @@
 #include "spl-semantic-analyzer-module.cpp"
+#include "spl-ast.hpp"
+#include "spl-enum.hpp"
+#include "spl-ir.hpp"
 #include <algorithm>
 #include <iostream>
 #include <list>
