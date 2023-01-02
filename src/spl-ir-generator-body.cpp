@@ -50,7 +50,6 @@ void generate_ir() {
     for (auto &ir : prog->ir) {
         ir->print(out);
     }
-    std::cout << "----------------------" << std::endl;
     std::cout << out.str() << std::endl;
 }
 
@@ -370,7 +369,7 @@ void traverse_exp(SplAstNode *now) {
                 now->ir.emplace_back(std::make_shared<SplIrReadInstruction>(
                     SplIrOperand(SplIrOperand::L_VALUE_TEMPORARY, ir_var)));
             } else {
-                now->ir.emplace_back(std::make_shared<SplIrCallInstruction>(
+                now->ir.emplace_back(std::make_shared<SplIrAssignCallInstruction>(
                     SplIrOperand(SplIrOperand::L_VALUE_TEMPORARY, ir_var),
                     SplIrOperand(SplIrOperand::FUNCTION, func_name)));
             }
@@ -395,7 +394,7 @@ void traverse_exp(SplAstNode *now) {
                     SplIrOperand(SplIrOperand::L_VALUE_TEMPORARY, ir_var)));
             } else {
                 ir_var = tmp_counter.next();
-                now->ir.emplace_back(std::make_shared<SplIrCallInstruction>(
+                now->ir.emplace_back(std::make_shared<SplIrAssignCallInstruction>(
                     SplIrOperand(SplIrOperand::L_VALUE_TEMPORARY, ir_var),
                     SplIrOperand(SplIrOperand::FUNCTION, func_name)));
             }
