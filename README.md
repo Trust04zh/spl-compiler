@@ -61,17 +61,27 @@ apply `splc` parser on all `.spl` files in specified directory
 
 ## todo
 
-- [] exp
-  - [] struct addressing
-  - [] array addressing
+codegen
+
+- [x] exp
+  - [x] struct addressing
+  - [x] array addressing
   - [x] arithmetic operation
-  - [] boolean operation
-    - [] short circuit
+  - [x] boolean operation
+    - [x] short circuit
   - [x] function call
-- [] if stmt
-  - [] if else stmt
-- [] while stmt
+- [x] if stmt
+  - [x] if else stmt
+- [x] while stmt
 - [x] function definition
 - [x] variable declaration
   - [x] variable definition
 - [x] `read` and `write` (pre-defined function)
+
+opt
+
+- [] constant folding
+- [] label fallthrough
+- [] dead code elimination
+- [] common subexpression elimination
+- [] copy propagation
