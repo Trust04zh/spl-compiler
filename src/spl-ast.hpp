@@ -396,7 +396,7 @@ struct SplAstNode {
     SplAttr attr;
     SplLoc loc;
     bool error_propagated{false};
-    SplIrList ir;
+    SplIrInstructionList ir;
 
     SplAstNode(const char *name, SplAttr &&attr, const SplLoc &loc)
         : name(name), attr(std::move(attr)), loc(loc) {}
