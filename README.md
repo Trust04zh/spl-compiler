@@ -86,7 +86,7 @@ codegen
 opt
 
 - [] constant folding
-- [] label fallthrough
+- [x] label fallthrough
 - [x] dead basic block elimination
 - [] common subexpression elimination
-- [] copy propagation
+- [x] copy propagation elimination

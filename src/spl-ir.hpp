@@ -404,8 +404,23 @@ class SplIrIfGotoInstruction : public SplIrInstruction, public Patchable {
             throw std::runtime_error("unrecognized ast node type");
         }
     }
-
-  private:
+    static Relop negated_relop(Relop relop) {
+        switch (relop) {
+        case EQ:
+            return NE;
+        case NE:
+            return EQ;
+        case LT:
+            return GE;
+        case LE:
+            return GT;
+        case GT:
+            return LE;
+        case GE:
+            return LT;
+        }
+        throw std::runtime_error("Invalid relop");
+    }
     static std::string relop_to_string(Relop relop) {
         switch (relop) {
         case EQ:
@@ -423,8 +438,6 @@ class SplIrIfGotoInstruction : public SplIrInstruction, public Patchable {
         }
         throw std::runtime_error("Invalid relop");
     }
-
-  public:
     std::shared_ptr<SplIrOperand> lhs, rhs;
     std::optional<std::shared_ptr<SplIrOperand>> label;
     Relop relop;
