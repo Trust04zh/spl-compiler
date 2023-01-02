@@ -687,13 +687,13 @@ class SplIrModule {
         for (auto &inst : ir) {
             ss << std::setw(8) << std::left << inst->parent->name;
             std::stringstream ss_pred;
-            ss_pred  << "pred: ";
+            ss_pred << "pred: ";
             for (auto &pred : inst->parent->predecessors) {
                 ss_pred << pred->name << " ";
             }
             ss << std::setw(20) << std::left << ss_pred.str();
             std::stringstream ss_succ;
-            ss_succ  << "succ: ";
+            ss_succ << "succ: ";
             for (auto &succ : inst->parent->successors) {
                 ss_succ << succ->name << " ";
             }
@@ -858,9 +858,13 @@ std::shared_ptr<SplIrOperand> SplIrModule::get_or_make_function_operand_by_name(
 void SplIrModule::fill_ir(const SplIrInstructionList &ir) {
     this->ir = ir;
     build_use_list();
+#ifdef SPL_IR_GENERATOR_DEBUG
     debug_print_use_list();
+#endif
     build_basic_blocks();
+#ifdef SPL_IR_GENERATOR_DEBUG
     debug_print_basic_blocks();
+#endif
 }
 
 void SplIrModule::replace_usage(std::string operand_name) {

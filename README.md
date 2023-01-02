@@ -59,6 +59,11 @@ apply `splc` parser on all `.spl` files in specified directory
 // #define LOCAL_SCOPE  // uncomment this line to enable local scope
 ```
 
+```
+// src/spl-ir-generator-standalone.cpp
+#define SPL_IR_GENERATOR_DEBUG // uncomment this line to enable debug output
+```
+
 ## todo
 
 codegen

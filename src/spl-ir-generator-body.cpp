@@ -624,18 +624,21 @@ void opt_ir() {
              it_bb != ir_module.basic_blocks.end(); it_bb++) {
             if ((*it_bb)->predecessors.empty() &&
                 (*(*it_bb)->head)->type != SplIrInstructionType::FUNCTION) {
+#ifdef SPL_IR_GENERATOR_DEBUG
                 std::cout << "dead basic block: " << (*it_bb)->name
                           << std::endl;
+#endif
                 auto it_inst_tmp = (*it_bb)->head;
                 while (it_inst_tmp != ir_module.ir.end() &&
                        (*it_inst_tmp)->parent == (*it_bb)) {
                     for (auto operand : (*it_inst_tmp)->operands) {
-                        auto &use_list = ir_module.use_list[operand.get()->repr];
+                        auto &use_list =
+                            ir_module.use_list[operand.get()->repr];
                         for (auto user_inst : use_list) {
                             if (user_inst == (*it_inst_tmp)) {
-                                use_list.erase(
-                                    std::find(use_list.begin(), use_list.end(),
-                                              (*it_inst_tmp)));
+                                use_list.erase(std::find(use_list.begin(),
+                                                         use_list.end(),
+                                                         (*it_inst_tmp)));
                                 break;
                             }
                         }

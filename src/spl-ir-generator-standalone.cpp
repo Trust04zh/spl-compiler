@@ -1,3 +1,4 @@
+// #define SPL_IR_GENERATOR_DEBUG // uncomment this line to enable debug output
 #include "spl-ast.hpp"
 #include "spl-ir-generator-body.cpp"
 
