@@ -132,16 +132,6 @@ class SplIrInstruction {
     std::shared_ptr<SplIrBasicBlock> parent;
     explicit SplIrInstruction(SplIrInstructionType type) : type(type) {}
     virtual void print(std::stringstream &out) = 0;
-    void replace_usage(std::shared_ptr<SplIrOperand> old_op,
-                       std::shared_ptr<SplIrOperand> new_op) {
-        for (auto &operand : operands) {
-            if (operand.get() == old_op) {
-                operand.get() = new_op;
-                // TODO: reduce use count for old_op, increase use count for
-                // new_op
-            }
-        }
-    }
 };
 
 class SplIrLabelInstruction : public SplIrInstruction {
@@ -641,7 +631,7 @@ class SplIrModule {
   public:
     SplIrInstructionList ir;
 
-    std::unordered_map<std::string, SplIrInstructionList> use_list;
+    std::unordered_map<std::string, SplIrInstructionList> use_lists;
     SplIrBasicBlockList basic_blocks;
 
     std::unique_ptr<SplIrAutoIncrementHelper> var_counter, tmp_counter,
@@ -659,8 +649,11 @@ class SplIrModule {
 
     void fill_ir(const SplIrInstructionList &ir);
 
-    void replace_usage(std::string operand_name);
-    void erase_instruction(std::shared_ptr<SplIrInstruction>);
+    void replace_usage(std::shared_ptr<SplIrInstruction> inst,
+                       std::shared_ptr<SplIrOperand> old_op,
+                       std::shared_ptr<SplIrOperand> new_op);
+    void erase_instruction(SplIrInstructionList::iterator it);
+    void rebuild_basic_blocks();
 
     SplIrInstructionList::iterator
     get_ir_itor_by_inst(std::shared_ptr<SplIrInstruction> inst);
@@ -672,7 +665,7 @@ class SplIrModule {
     void debug_print_use_list() {
         // for debug
         std::stringstream ss;
-        for (auto &pair : use_list) {
+        for (auto &pair : use_lists) {
             ss << "> " << pair.first << ": " << std::endl;
             for (auto inst : pair.second) {
                 inst->print(ss);
@@ -710,13 +703,13 @@ void SplIrModule::build_use_list() {
         for (auto operand : inst->operands) {
             // std::cout << operand.get()->repr << std::endl;
             /* Note that an inst may be pushed more than once */
-            use_list[operand.get()->repr].push_back(inst);
+            use_lists[operand.get()->repr].push_back(inst);
         }
     }
 }
 
 void SplIrModule::build_basic_blocks() {
-    // requires use_list
+    /* requires use_lists */
     // find head instructions
     for (auto it = ir.begin(); it != ir.end(); it++) {
         switch ((*it)->type) {
@@ -867,13 +860,41 @@ void SplIrModule::fill_ir(const SplIrInstructionList &ir) {
 #endif
 }
 
-void SplIrModule::replace_usage(std::string operand_name) {
-    // TODO: replace all usage of operand
+void SplIrModule::replace_usage(std::shared_ptr<SplIrInstruction> inst,
+                                std::shared_ptr<SplIrOperand> old_op,
+                                std::shared_ptr<SplIrOperand> new_op) {
+    for (auto &operand : inst->operands) {
+        if (operand.get() == old_op) {
+            operand.get() = new_op;
+            // reduce use count for old_op, increase use count for new_op
+            auto old_use_list = use_lists[old_op->repr];
+            auto new_use_list = use_lists[new_op->repr];
+            for (auto it = old_use_list.begin(); it != old_use_list.end();
+                 it++) {
+                if (inst == *it) {
+                    old_use_list.erase(it);
+                    break;
+                }
+            }
+            new_use_list.push_back(inst);
+        }
+    }
 }
 
-void SplIrModule::erase_instruction(std::shared_ptr<SplIrInstruction>) {
-    // TODO: remove instruction from ir list
-    // TODO: remove usage from use list
+void SplIrModule::erase_instruction(SplIrInstructionList::iterator it) {
+    // remove usage from use list
+    for (auto operand : (*it)->operands) {
+        auto &use_list = use_lists[operand.get()->repr];
+        for (auto user_inst : use_list) {
+            if (user_inst == (*it)) {
+                use_list.erase(
+                    std::find(use_list.begin(), use_list.end(), (*it)));
+                break;
+            }
+        }
+    }
+    // remove instruction from ir list
+    ir.erase(it);
 }
 
 SplIrInstructionList::iterator
@@ -907,6 +928,14 @@ SplIrModule::get_ir_itor_by_label_name(std::string label_name) {
         }
     }
     return ir.end();
+}
+
+void SplIrModule::rebuild_basic_blocks() {
+    for (auto it = ir.begin(); it != ir.end(); it++) {
+        (*it)->parent = nullptr;
+    }
+    basic_blocks.clear();
+    build_basic_blocks();
 }
 
 #endif /* SPL_IR_HPP */

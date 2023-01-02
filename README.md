@@ -87,6 +87,6 @@ opt
 
 - [] constant folding
 - [] label fallthrough
-- [] dead code elimination
+- [x] dead basic block elimination
 - [] common subexpression elimination
 - [] copy propagation

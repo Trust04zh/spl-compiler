@@ -631,31 +631,102 @@ void opt_ir() {
                 auto it_inst_tmp = (*it_bb)->head;
                 while (it_inst_tmp != ir_module.ir.end() &&
                        (*it_inst_tmp)->parent == (*it_bb)) {
-                    for (auto operand : (*it_inst_tmp)->operands) {
-                        auto &use_list =
-                            ir_module.use_list[operand.get()->repr];
-                        for (auto user_inst : use_list) {
-                            if (user_inst == (*it_inst_tmp)) {
-                                use_list.erase(std::find(use_list.begin(),
-                                                         use_list.end(),
-                                                         (*it_inst_tmp)));
-                                break;
-                            }
-                        }
-                    }
                     auto it_inst_prev = it_inst_tmp;
                     it_inst_tmp++;
-                    ir_module.ir.erase(it_inst_prev);
+                    ir_module.erase_instruction(it_inst_prev);
                 }
-                for (auto successor : (*it_bb)->successors) {
-                    successor->predecessors.erase(
-                        std::find(successor->predecessors.begin(),
-                                  successor->predecessors.end(), *it_bb));
-                }
-                ir_module.basic_blocks.erase(it_bb);
+                ir_module.rebuild_basic_blocks();
+                // for (auto successor : (*it_bb)->successors) {
+                //     successor->predecessors.erase(
+                //         std::find(successor->predecessors.begin(),
+                //                   successor->predecessors.end(), *it_bb));
+                // }
+                // ir_module.basic_blocks.erase(it_bb);
                 dead_basic_block_removed = true;
                 break;
             }
         }
     }
+    bool copy_propagation_canceled = true;
+    while (copy_propagation_canceled) {
+        copy_propagation_canceled = false;
+        for (auto it_inst = ir_module.ir.begin(); it_inst != ir_module.ir.end();
+             it_inst++) {
+            if ((*it_inst)->type == SplIrInstructionType::ASSIGN) {
+                auto inst_assign =
+                    std::static_pointer_cast<SplIrAssignInstruction>(*it_inst);
+                if (inst_assign->dst->is_l_value()) {
+                    auto &use_list =
+                        ir_module.use_lists[inst_assign->src->repr];
+                    auto it_inst_prev = it_inst;
+                    it_inst_prev--;
+                    if (use_list.size() == 2 &&
+                        std::find(use_list.begin(), use_list.end(),
+                                  *it_inst_prev) != use_list.end()) {
+                        bool op_is_prev_dst = false;
+                        switch ((*it_inst_prev)->type) {
+                        case SplIrInstructionType::ASSIGN: {
+                            auto inst_prev = std::static_pointer_cast<
+                                SplIrAssignInstruction>(*it_inst_prev);
+                            op_is_prev_dst = inst_prev->dst == inst_assign->src;
+                            break;
+                        }
+                        case SplIrInstructionType::ASSIGN_ADD: {
+                            auto inst_prev = std::static_pointer_cast<
+                                SplIrAssignAddInstruction>(*it_inst_prev);
+                            op_is_prev_dst = inst_prev->dst == inst_assign->src;
+                            break;
+                        }
+                        case SplIrInstructionType::ASSIGN_MINUS: {
+                            auto inst_prev = std::static_pointer_cast<
+                                SplIrAssignMinusInstruction>(*it_inst_prev);
+                            op_is_prev_dst = inst_prev->dst == inst_assign->src;
+                            break;
+                        }
+                        case SplIrInstructionType::ASSIGN_MUL: {
+                            auto inst_prev = std::static_pointer_cast<
+                                SplIrAssignMulInstruction>(*it_inst_prev);
+                            op_is_prev_dst = inst_prev->dst == inst_assign->src;
+                            break;
+                        }
+                        case SplIrInstructionType::ASSIGN_DIV: {
+                            auto inst_prev = std::static_pointer_cast<
+                                SplIrAssignDivInstruction>(*it_inst_prev);
+                            op_is_prev_dst = inst_prev->dst == inst_assign->src;
+                            break;
+                        }
+                        case SplIrInstructionType::ASSIGN_CALL: {
+                            auto inst_prev = std::static_pointer_cast<
+                                SplIrAssignCallInstruction>(*it_inst_prev);
+                            op_is_prev_dst = inst_prev->dst == inst_assign->src;
+                            break;
+                        }
+                        case SplIrInstructionType::ASSIGN_ADDRESS: {
+                            auto inst_prev = std::static_pointer_cast<
+                                SplIrAssignAddressInstruction>(*it_inst_prev);
+                            op_is_prev_dst = inst_prev->dst == inst_assign->src;
+                            break;
+                        }
+                        // case SplIrInstructionType::ASSIGN_DEREF_DST:
+                        // case SplIrInstructionType::ASSIGN_DEREF_SRC:
+                        case SplIrInstructionType::READ: {
+                            auto inst_prev =
+                                std::static_pointer_cast<SplIrReadInstruction>(
+                                    *it_inst_prev);
+                            op_is_prev_dst = inst_prev->dst == inst_assign->src;
+                            break;
+                        }
+                        }
+                        if (op_is_prev_dst) {
+                            ir_module.replace_usage(*it_inst_prev, inst_assign->src, inst_assign->dst);
+                            ir_module.erase_instruction(it_inst);
+                            copy_propagation_canceled = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // ir_module.debug_print_basic_blocks();
 }
