@@ -2,72 +2,92 @@
 #define SPL_IR_HPP
 
 #include "spl-enum.hpp"
+#include <list>
+#include <memory>
 #include <optional>
 #include <sstream>
 #include <string>
-
-using SplIrVariableRepr = std::string;
+#include <unordered_map>
+#include <vector>
 
 constexpr size_t SPL_INT_SIZE = 4;
 
+enum class SplIrOperandType {
+    R_VALUE_CONSTANT,
+    L_VALUE_TEMPORARY, // they are always intermediate products of
+                       // expressions, do optimization on them
+    L_VALUE_VARIABLE,
+    FUNCTION,
+    LABEL
+};
+
+enum class SplIrInstructionType {
+    LABEL,
+    FUNCTION,
+    ASSIGN,
+    ASSIGN_ADD,
+    ASSIGN_MINUS,
+    ASSIGN_MUL,
+    ASSIGN_DIV,
+    ASSIGN_ADDRESS,
+    ASSIGN_DEREF_SRC,
+    ASSIGN_DEREF_DST,
+    GOTO,
+    IF_GOTO,
+    RETURN,
+    DEC,
+    ARG,
+    ASSIGN_CALL,
+    PARAM,
+    READ,
+    WRITE
+};
+
+class SplIrAutoIncrementHelper;
+
+class SplIrOperand;
+class SplIrInstruction;
+class SplIrBasicBlock;
+class SplIrModule;
+
+using SplIrList = std::list<std::shared_ptr<SplIrInstruction>>;
+
 class SplIrOperand {
   public:
-    enum OperandType {
-        R_VALUE_CONSTANT,
-        L_VALUE_TEMPORARY, // they are always intermediate products of
-                           // expressions, do optimization on them
-        L_VALUE_VARIABLE,
-        FUNCTION,
-        LABEL
-    };
     bool is_value() const {
-        return type == R_VALUE_CONSTANT || type == L_VALUE_TEMPORARY ||
-               type == L_VALUE_VARIABLE;
+        return type == SplIrOperandType::R_VALUE_CONSTANT ||
+               type == SplIrOperandType::L_VALUE_TEMPORARY ||
+               type == SplIrOperandType::L_VALUE_VARIABLE;
     }
     bool is_l_value() const {
-        return type == L_VALUE_TEMPORARY || type == L_VALUE_VARIABLE;
+        return type == SplIrOperandType::L_VALUE_TEMPORARY ||
+               type == SplIrOperandType::L_VALUE_VARIABLE;
     }
-    bool is_L_VALUE_VARIABLE() const { return type == L_VALUE_VARIABLE; }
-    bool is_function() const { return type == FUNCTION; }
-    bool is_label() const { return type == LABEL; }
-    OperandType type;
+    bool is_l_value_variable() const {
+        return type == SplIrOperandType::L_VALUE_VARIABLE;
+    }
+    bool is_function() const { return type == SplIrOperandType::FUNCTION; }
+    bool is_label() const { return type == SplIrOperandType::LABEL; }
+    SplIrOperandType type;
     std::string repr;
-    SplIrOperand(OperandType type, std::string repr) : type(type), repr(repr) {}
+    SplIrOperand(SplIrOperandType type, std::string repr)
+        : type(type), repr(repr) {}
     SplIrOperand(const SplIrOperand &) = default;
 };
 
 class SplIrInstruction {
   public:
-    enum InstructionType {
-        LABEL,
-        FUNCTION,
-        ASSIGN,
-        ASSIGN_ADD,
-        ASSIGN_MINUS,
-        ASSIGN_MUL,
-        ASSIGN_DIV,
-        ASSIGN_ADDRESS,
-        ASSIGN_DEREF_SRC,
-        ASSIGN_DEREF_DST,
-        GOTO,
-        IF_GOTO,
-        RETURN,
-        DEC,
-        ARG,
-        ASSIGN_CALL,
-        PARAM,
-        READ,
-        WRITE
-    };
-    InstructionType type;
-    explicit SplIrInstruction(InstructionType type) : type(type) {}
+    SplIrInstructionType type;
+    explicit SplIrInstruction(SplIrInstructionType type) : type(type) {}
     virtual void print(std::stringstream &out) = 0;
 };
 
 class SplIrLabelInstruction : public SplIrInstruction {
   public:
     SplIrOperand label;
-    SplIrLabelInstruction(SplIrOperand &&label) : label(std::move(label)), SplIrInstruction(SplIrInstruction::LABEL) {
+    SplIrLabelInstruction(SplIrOperand &&label)
+        : label(std::move(label)),
+          SplIrInstruction(SplIrInstructionType::LABEL) {
         if (!this->label.is_label()) {
             throw std::runtime_error(
                 "Label instruction must have label operand");
@@ -86,7 +106,9 @@ class Patchable {
 class SplIrFunctionInstruction : public SplIrInstruction {
   public:
     SplIrOperand func;
-    SplIrFunctionInstruction(SplIrOperand &&func) : func(std::move(func)), SplIrInstruction(SplIrInstruction::FUNCTION) {
+    SplIrFunctionInstruction(SplIrOperand &&func)
+        : func(std::move(func)),
+          SplIrInstruction(SplIrInstructionType::FUNCTION) {
         if (!this->func.is_function()) {
             throw std::runtime_error(
                 "Function instruction must have function operand");
@@ -101,7 +123,8 @@ class SplIrAssignInstruction : public SplIrInstruction {
   public:
     SplIrOperand dst, src;
     SplIrAssignInstruction(SplIrOperand &&dst, SplIrOperand &&src)
-        : dst(std::move(dst)), src(std::move(src)), SplIrInstruction(SplIrInstruction::ASSIGN) {
+        : dst(std::move(dst)), src(std::move(src)),
+          SplIrInstruction(SplIrInstructionType::ASSIGN) {
         if (!this->dst.is_l_value()) {
             throw std::runtime_error(
                 "Assign instruction must have l-value destination operand");
@@ -121,7 +144,8 @@ class SplIrAssignAddInstruction : public SplIrInstruction {
     SplIrOperand dst, src1, src2;
     SplIrAssignAddInstruction(SplIrOperand &&dst, SplIrOperand &&src1,
                               SplIrOperand &&src2)
-        : dst(std::move(dst)), src1(std::move(src1)), src2(std::move(src2)), SplIrInstruction(SplIrInstruction::ASSIGN_ADD) {
+        : dst(std::move(dst)), src1(std::move(src1)), src2(std::move(src2)),
+          SplIrInstruction(SplIrInstructionType::ASSIGN_ADD) {
         if (!this->dst.is_l_value()) {
             throw std::runtime_error(
                 "AssignAdd instruction must have l-value destination operand");
@@ -142,7 +166,8 @@ class SplIrAssignMinusInstruction : public SplIrInstruction {
     SplIrOperand dst, src1, src2;
     SplIrAssignMinusInstruction(SplIrOperand &&dst, SplIrOperand &&src1,
                                 SplIrOperand &&src2)
-        : dst(std::move(dst)), src1(std::move(src1)), src2(std::move(src2)), SplIrInstruction(SplIrInstruction::ASSIGN_MINUS) {
+        : dst(std::move(dst)), src1(std::move(src1)), src2(std::move(src2)),
+          SplIrInstruction(SplIrInstructionType::ASSIGN_MINUS) {
         if (!this->dst.is_l_value()) {
             throw std::runtime_error("AssignMinus instruction must have "
                                      "l-value destination operand");
@@ -163,7 +188,8 @@ class SplIrAssignMulInstruction : public SplIrInstruction {
     SplIrOperand dst, src1, src2;
     SplIrAssignMulInstruction(SplIrOperand &&dst, SplIrOperand &&src1,
                               SplIrOperand &&src2)
-        : dst(std::move(dst)), src1(std::move(src1)), src2(std::move(src2)), SplIrInstruction(SplIrInstruction::ASSIGN_MUL) {
+        : dst(std::move(dst)), src1(std::move(src1)), src2(std::move(src2)),
+          SplIrInstruction(SplIrInstructionType::ASSIGN_MUL) {
         if (!this->dst.is_l_value()) {
             throw std::runtime_error(
                 "AssignMul instruction must have l-value destination operand");
@@ -184,7 +210,8 @@ class SplIrAssignDivInstruction : public SplIrInstruction {
     SplIrOperand dst, src1, src2;
     SplIrAssignDivInstruction(SplIrOperand &&dst, SplIrOperand &&src1,
                               SplIrOperand &&src2)
-        : dst(std::move(dst)), src1(std::move(src1)), src2(std::move(src2)), SplIrInstruction(SplIrInstruction::ASSIGN_DIV) {
+        : dst(std::move(dst)), src1(std::move(src1)), src2(std::move(src2)),
+          SplIrInstruction(SplIrInstructionType::ASSIGN_DIV) {
         if (!this->dst.is_l_value()) {
             throw std::runtime_error(
                 "AssignDiv instruction must have l-value destination operand");
@@ -204,12 +231,13 @@ class SplIrAssignAddressInstruction : public SplIrInstruction {
   public:
     SplIrOperand dst, src;
     SplIrAssignAddressInstruction(SplIrOperand &&dst, SplIrOperand &&src)
-        : dst(std::move(dst)), src(std::move(src)), SplIrInstruction(SplIrInstruction::ASSIGN_ADDRESS) {
+        : dst(std::move(dst)), src(std::move(src)),
+          SplIrInstruction(SplIrInstructionType::ASSIGN_ADDRESS) {
         if (!this->dst.is_l_value()) {
             throw std::runtime_error("AssignAddress instruction must have "
                                      "l-value destination operand");
         }
-        if (!this->src.is_L_VALUE_VARIABLE()) {
+        if (!this->src.is_l_value_variable()) {
             throw std::runtime_error("AssignAddress instruction must have "
                                      "r-value variable source operand");
         }
@@ -223,7 +251,8 @@ class SplIrAssignDerefSrcInstruction : public SplIrInstruction {
   public:
     SplIrOperand dst, src;
     SplIrAssignDerefSrcInstruction(SplIrOperand &&dst, SplIrOperand &&src)
-        : dst(std::move(dst)), src(std::move(src)), SplIrInstruction(SplIrInstruction::ASSIGN_DEREF_SRC) {
+        : dst(std::move(dst)), src(std::move(src)),
+          SplIrInstruction(SplIrInstructionType::ASSIGN_DEREF_SRC) {
         if (!this->dst.is_l_value()) {
             throw std::runtime_error("AssignDerefSrc instruction must have "
                                      "l-value destination operand");
@@ -242,7 +271,8 @@ class SplIrAssignDerefDstInstruction : public SplIrInstruction {
   public:
     SplIrOperand dst, src;
     SplIrAssignDerefDstInstruction(SplIrOperand &&dst, SplIrOperand &&src)
-        : dst(std::move(dst)), src(std::move(src)), SplIrInstruction(SplIrInstruction::ASSIGN_DEREF_DST) {
+        : dst(std::move(dst)), src(std::move(src)),
+          SplIrInstruction(SplIrInstructionType::ASSIGN_DEREF_DST) {
         if (!this->dst.is_l_value()) {
             throw std::runtime_error("AssignDerefDst instruction must have "
                                      "l-value destination operand");
@@ -257,8 +287,9 @@ class SplIrGotoInstruction : public SplIrInstruction, public Patchable {
   public:
     std::optional<SplIrOperand> label;
     explicit SplIrGotoInstruction(SplIrOperand &&label)
-        : label{std::move(label)}, SplIrInstruction(SplIrInstruction::GOTO) {}
-    SplIrGotoInstruction(): SplIrInstruction(SplIrInstruction::GOTO) {}
+        : label{std::move(label)},
+          SplIrInstruction(SplIrInstructionType::GOTO) {}
+    SplIrGotoInstruction() : SplIrInstruction(SplIrInstructionType::GOTO) {}
 
     void patch(const SplIrOperand &label) override { this->label = label; }
 
@@ -322,14 +353,16 @@ class SplIrIfGotoInstruction : public SplIrInstruction, public Patchable {
     SplIrIfGotoInstruction(SplIrOperand &&lhs, SplIrOperand &&rhs,
                            const SplAstNodeType &relop)
         : lhs(std::move(lhs)), rhs(std::move(rhs)),
-          relop(astNodeTypeToRelop(relop)), SplIrInstruction(SplIrInstruction::IF_GOTO) {
+          relop(astNodeTypeToRelop(relop)),
+          SplIrInstruction(SplIrInstructionType::IF_GOTO) {
         if (!this->lhs.is_value() || !this->rhs.is_value()) {
             throw std::runtime_error("IfGoto instruction must have value "
                                      "operands");
         }
     }
     SplIrIfGotoInstruction(SplIrOperand &&lhs, SplIrOperand &&rhs, Relop relop)
-        : lhs(std::move(lhs)), rhs(std::move(rhs)), relop(relop), SplIrInstruction(SplIrInstruction::IF_GOTO) {
+        : lhs(std::move(lhs)), rhs(std::move(rhs)), relop(relop),
+          SplIrInstruction(SplIrInstructionType::IF_GOTO) {
         if (!this->lhs.is_value() || !this->rhs.is_value()) {
             throw std::runtime_error("IfGoto instruction must have value "
                                      "operands");
@@ -354,7 +387,8 @@ class SplIrIfGotoInstruction : public SplIrInstruction, public Patchable {
 class SplIrReturnInstruction : public SplIrInstruction {
   public:
     SplIrOperand src;
-    SplIrReturnInstruction(SplIrOperand &&src) : src(std::move(src)), SplIrInstruction(SplIrInstruction::RETURN) {
+    SplIrReturnInstruction(SplIrOperand &&src)
+        : src(std::move(src)), SplIrInstruction(SplIrInstructionType::RETURN) {
         if (!this->src.is_value()) {
             throw std::runtime_error(
                 "Return instruction must have value operand");
@@ -370,8 +404,9 @@ class SplIrDecInstruction : public SplIrInstruction {
     SplIrOperand variable;
     int size;
     SplIrDecInstruction(SplIrOperand &&variable, int size)
-        : variable(std::move(variable)), size(size), SplIrInstruction(SplIrInstruction::DEC) {
-        if (!this->variable.is_L_VALUE_VARIABLE()) {
+        : variable(std::move(variable)), size(size),
+          SplIrInstruction(SplIrInstructionType::DEC) {
+        if (!this->variable.is_l_value_variable()) {
             throw std::runtime_error("Dec instruction must have "
                                      "r-value variable source operand");
         }
@@ -388,7 +423,8 @@ class SplIrDecInstruction : public SplIrInstruction {
 class SplIrArgInstruction : public SplIrInstruction {
   public:
     SplIrOperand arg;
-    SplIrArgInstruction(SplIrOperand &&arg) : arg(std::move(arg)), SplIrInstruction(SplIrInstruction::ARG) {
+    SplIrArgInstruction(SplIrOperand &&arg)
+        : arg(std::move(arg)), SplIrInstruction(SplIrInstructionType::ARG) {
         if (!this->arg.is_value()) {
             throw std::runtime_error("Arg instruction must have value operand");
         }
@@ -402,7 +438,8 @@ class SplIrAssignCallInstruction : public SplIrInstruction {
   public:
     SplIrOperand dst, func;
     SplIrAssignCallInstruction(SplIrOperand &&dst, SplIrOperand &&func)
-        : dst(std::move(dst)), func(std::move(func)), SplIrInstruction(SplIrInstruction::ASSIGN_CALL) {
+        : dst(std::move(dst)), func(std::move(func)),
+          SplIrInstruction(SplIrInstructionType::ASSIGN_CALL) {
         if (!this->dst.is_l_value()) {
             throw std::runtime_error("Call instruction must have "
                                      "l-value destination operand");
@@ -420,7 +457,9 @@ class SplIrAssignCallInstruction : public SplIrInstruction {
 class SplIrParamInstruction : public SplIrInstruction {
   public:
     SplIrOperand param;
-    SplIrParamInstruction(SplIrOperand &&param) : param(std::move(param)), SplIrInstruction(SplIrInstruction::PARAM) {
+    SplIrParamInstruction(SplIrOperand &&param)
+        : param(std::move(param)),
+          SplIrInstruction(SplIrInstructionType::PARAM) {
         if (!this->param.is_value()) {
             throw std::runtime_error(
                 "Param instruction must have value operand");
@@ -434,7 +473,8 @@ class SplIrParamInstruction : public SplIrInstruction {
 class SplIrReadInstruction : public SplIrInstruction {
   public:
     SplIrOperand dst;
-    SplIrReadInstruction(SplIrOperand &&dst) : dst(std::move(dst)), SplIrInstruction(SplIrInstruction::READ) {
+    SplIrReadInstruction(SplIrOperand &&dst)
+        : dst(std::move(dst)), SplIrInstruction(SplIrInstructionType::READ) {
         if (!this->dst.is_l_value()) {
             throw std::runtime_error("Read instruction must have "
                                      "l-value destination operand");
@@ -448,7 +488,8 @@ class SplIrReadInstruction : public SplIrInstruction {
 class SplIrWriteInstruction : public SplIrInstruction {
   public:
     SplIrOperand src;
-    SplIrWriteInstruction(SplIrOperand &&src) : src(std::move(src)), SplIrInstruction(SplIrInstruction::WRITE) {
+    SplIrWriteInstruction(SplIrOperand &&src)
+        : src(std::move(src)), SplIrInstruction(SplIrInstructionType::WRITE) {
         if (!this->src.is_value()) {
             throw std::runtime_error("Write instruction must have "
                                      "value source operand");
@@ -460,6 +501,16 @@ class SplIrWriteInstruction : public SplIrInstruction {
 };
 
 class SplIrBasicBlock {};
+
+class SplIrModule {
+  public:
+    SplIrList ir_list;
+    std::unordered_map<std::string, SplIrList> use_list;
+    std::list<SplIrBasicBlock> basic_blocks;
+
+    explicit SplIrModule(const SplIrList &ir_list) : ir_list(ir_list) {}
+
+};
 
 class SplIrAutoIncrementHelper {
   private:
