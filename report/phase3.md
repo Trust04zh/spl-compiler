@@ -15,7 +15,15 @@
 
 下面是基本块消除的一个具体例子
 
+![](images/dead_basic_block_elimination.png)
 
+下图为优化前的基本块与控制流信息
+
+![](images/control_flow_non_opt.png)
+
+下图为优化后的基本块与控制流信息
+
+![](images/control_flow_opt.png)
 
 ### Copy Propagation Elimination
 
@@ -23,7 +31,7 @@
 
 下面是复制传播消除的一个具体例子
 
-
+![](images/copy_propagation_elimination.png)
 
 ### Fall Through
 
@@ -31,7 +39,7 @@
 
 下面是这种优化的一个具体例子
 
-
+![](images/fall_through.png)
 
 ## Bonus功能
 
