@@ -41,7 +41,7 @@ void generate_ir() {
     traverse_ir(prog);
     collect_ir_by_postorder(prog);
     ir_module.fill_ir(prog->ir);
-    opt_ir();  // uncomment this line to enable optimization
+    opt_ir(); // uncomment this line to enable optimization
     for (auto &ir : ir_module.ir) {
         ir->print(out);
     }
@@ -770,10 +770,12 @@ void opt_ir() {
                             if (inst_if_goto->label.value() ==
                                     inst_label->label &&
                                 use_list.size() == 2) {
-                                ir_module.replace_usage(*it_if_goto,
-                                                        inst_if_goto->label.value(),
-                                                        inst_goto->label.value());
-                                inst_if_goto->relop = inst_if_goto->negated_relop(inst_if_goto->relop);
+                                ir_module.replace_usage(
+                                    *it_if_goto, inst_if_goto->label.value(),
+                                    inst_goto->label.value());
+                                inst_if_goto->relop =
+                                    inst_if_goto->negated_relop(
+                                        inst_if_goto->relop);
                                 ir_module.erase_instruction(it_goto);
                                 ir_module.erase_instruction(it_label);
                                 ir_module.rebuild_basic_blocks();
