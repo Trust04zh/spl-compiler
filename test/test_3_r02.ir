@@ -1,0 +1,75 @@
+FUNCTION main :
+READ v1
+READ v0
+t2 := v1 / #100
+t3 := t2 * #100
+IF v1 != t3 GOTO label1
+t4 := v1 / #400
+t5 := t4 * #400
+IF v1 != t5 GOTO label3
+IF v0 != #2 GOTO label5
+WRITE #29
+GOTO label9
+LABEL label5 :
+t6 := v0 / #2
+t7 := t6 * #2
+IF v0 != t7 GOTO label7
+WRITE #30
+GOTO label8
+LABEL label7 :
+WRITE #31
+LABEL label8 :
+LABEL label9 :
+GOTO label16
+LABEL label3 :
+IF v0 != #2 GOTO label11
+WRITE #28
+GOTO label15
+LABEL label11 :
+t8 := v0 / #2
+t9 := t8 * #2
+IF v0 != t9 GOTO label13
+WRITE #30
+GOTO label14
+LABEL label13 :
+WRITE #31
+LABEL label14 :
+LABEL label15 :
+LABEL label16 :
+GOTO label32
+LABEL label1 :
+t10 := v1 / #4
+t11 := t10 * #4
+IF v1 != t11 GOTO label18
+IF v0 != #2 GOTO label20
+WRITE #29
+GOTO label24
+LABEL label20 :
+t12 := v0 / #2
+t13 := t12 * #2
+IF v0 != t13 GOTO label22
+WRITE #30
+GOTO label23
+LABEL label22 :
+WRITE #31
+LABEL label23 :
+LABEL label24 :
+GOTO label31
+LABEL label18 :
+IF v0 != #2 GOTO label26
+WRITE #28
+GOTO label30
+LABEL label26 :
+t14 := v0 / #2
+t15 := t14 * #2
+IF v0 != t15 GOTO label28
+WRITE #30
+GOTO label29
+LABEL label28 :
+WRITE #31
+LABEL label29 :
+LABEL label30 :
+LABEL label31 :
+LABEL label32 :
+RETURN #0
+

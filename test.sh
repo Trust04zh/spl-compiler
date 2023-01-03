@@ -21,7 +21,7 @@ if [ ! -n "$(ls $1/*.spl 2>/dev/null)" ]; then
 fi
 
 for i in $1/*.spl; do
-    $SPLC $i > ${i%.spl}.out
+    $SPLC $i > ${i%.spl}.ir
     echo "apply splc on $i, return value $?"
 done
 
