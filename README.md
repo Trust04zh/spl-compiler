@@ -10,11 +10,11 @@ see [report/phase2.md](report/phase2.md) for report for semantic analyzer.
 
 see [report/phase3.md](report/phase3.md) for report for ir generator.
 
-use `git checkout parser` to checkout the parser version.
+use `git checkout <tag>` to switch between phases.
 
 ## usage
 
-make parser executable
+make executable
 
 ```
 make splc
@@ -68,30 +68,3 @@ opt_ir();  // uncomment this line to enable optimization
 // src/spl-ir-generator-standalone.cpp
 #define SPL_IR_GENERATOR_DEBUG // uncomment this line to enable debug output
 ```
-
-## todo
-
-codegen
-
-- [x] exp
-  - [x] bonus: struct addressing
-  - [x] bonus: array addressing
-  - [x] arithmetic operation
-  - [x] boolean operation
-    - [x] short circuit
-  - [x] function call
-- [x] if stmt
-  - [x] if else stmt
-- [x] while stmt
-- [x] function definition
-- [x] variable declaration
-  - [x] variable definition
-- [x] `read` and `write` (pre-defined function)
-
-opt
-
-- [x] label fallthrough
-- [x] dead basic block elimination
-- [x] copy propagation elimination
-- [] constant folding
-- [] common subexpression elimination
