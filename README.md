@@ -20,7 +20,7 @@ make executable
 make splc
 ```
 
-apply `splc` parser on all `.spl` files in specified directory
+apply `splc` executable on all `.spl` files in specified directory
 
 ```
 ./test.sh <directory>
